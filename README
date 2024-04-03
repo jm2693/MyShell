@@ -1,0 +1,17 @@
+Jason Merchan - jm2693
+Daniel Li - dal273
+
+
+What The Program Must Do:
+    - Run in Interactive Mode 
+    - Run in Bash Mode
+
+Things We Will Need:
+    - PID 
+        - each process has an ID (every child has an ID)
+        - an instance of an executing program 
+    - PPID
+        - parent of a process
+        - multiple processes can have the same parent
+        - if you run the process multiple times, it will likely have the same parent
+    - Execute with Executive System Call
