@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
-#define MAX_COMMAND_LENGTH 1024
+#define BUF 1024
 
 // shell loop that will constantly check for input and parse arguments
 void run_shell_loop () {
@@ -19,9 +19,9 @@ void run_shell_loop () {
             printf("mysh> ");
         }
 
-        ssize_t bytes_read = read(STDIN_FILENO, command, MAX_COMMAND_LENGTH);
+        ssize_t bytes_read = read(STDIN_FILENO, command, BUF);
 
-        ssize_t bytes_read = read(STDIN_FILENO, command, MAX_COMMAND_LENGTH);
+        ssize_t bytes_read = read(STDIN_FILENO, command, BUF);
         if (bytes_read < 0) {
             printf("Error reading command\n");
             continue;
@@ -34,6 +34,39 @@ void run_shell_loop () {
 
 }
 
+char *read_line(void){
+    int bufSize = BUF;
+    int pos = 0;
+    char *buffer = malloc(sizeof(char) * bufSize);
+    int a; 
+
+    if(!buffer){
+        printf(stderr, "mysh: allocation error \n"); 
+        exit(EXIT_FAILURE);
+    }
+
+    while(1){
+        a = getchar();
+        
+        if(a == EOF || a == '\n'){
+            buffer[pos] = '\0';
+            return buffer;
+        } 
+        else{
+            buffer[pos] = a;
+        }
+        pos++;
+
+        if(pos >= bufSize){
+            bufSize += BUF;
+            buffer = realloc(buffer, bufSize);
+            if(!buffer){
+                printf(stderr, "mysh: allocation error \n"); 
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+}
 
 
 
