@@ -34,7 +34,7 @@ void run_shell_loop () {
 
 }
 
-char *read_line(void){
+char *read_line(){
     int bufSize = BUF;
     int pos = 0;
     char *buffer = malloc(sizeof(char) * bufSize);
