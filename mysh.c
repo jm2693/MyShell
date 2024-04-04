@@ -7,29 +7,8 @@
 #include <sys/time.h>
 
 #define DELIM " \n"
-#define LINE_BUF 1024
+#define LINE_BUF 512
 #define TOKEN_BUF 64
-
-
-// shell loop that will constantly check for input and parse arguments
-void run_shell_loop () {
-    char *command;
-    char **args;
-    int is_interactive = isatty(STDIN_FILENO);      
-
-    while (1) {
-        if (is_interactive) {
-            printf("mysh> ");
-        }
-
-        command = read_line();
-        args = tokenize(read_line);
-
-        free(command);
-        free(args);
-    } 
-
-}
 
 char **tokenize(char* line) {
     int bufSize = TOKEN_BUF;
@@ -126,7 +105,26 @@ char *read_line(){
     }
 }
 
+// shell loop that will constantly check for input and parse arguments
+void run_shell_loop () {
+    char *command;
+    char **args;
+    int is_interactive = isatty(STDIN_FILENO);      // is from terminal?
 
+    while (1) {
+        if (is_interactive) {
+            printf("mysh> ");
+        }
+
+        command = read_line();
+        args = tokenize(read_line);
+        // missing execution
+
+        free(command);
+        free(args);
+    } 
+
+}
 
 int main(int argc, char const *argv[])
 {
