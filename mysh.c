@@ -48,6 +48,8 @@ char *read_line(void){
     while(1){
         a = getchar();
         
+        // if character is at end of file or new line
+        // replace character with null terminator
         if(a == EOF || a == '\n'){
             buffer[pos] = '\0';
             return buffer;
@@ -57,6 +59,7 @@ char *read_line(void){
         }
         pos++;
 
+        // double size of buffer if runs out of memory
         if(pos >= bufSize){
             bufSize += BUF;
             buffer = realloc(buffer, bufSize);
