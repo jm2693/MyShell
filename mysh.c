@@ -9,10 +9,10 @@
 #define MAX_COMMAND_LENGTH 1024
 
 
-void run_shell (int mode_fd) {
+void run_shell_loop (int mode_fd) {
     char command[MAX_COMMAND_LENGTH];
     char *args[MAX_COMMAND_LENGTH-1];
-    int is_interactive = isatty(mode_fd);      
+    int is_interactive = isatty(STDIN_FILENO);      
 
     while (1) {
         if (is_interactive) {
@@ -39,11 +39,13 @@ void run_shell (int mode_fd) {
 
 int main(int argc, char const *argv[])
 {
+    // this program takes in at most 2 arguments including the program name. any more results in error
     if (argc > 2) {
         printf("The program, %s, takes in either 0 or 1 arguments\n", argv[0]);
         return 1;
     }
 
+    // 
     int input_fd = STDIN_FILENO;
 
     if (argc == 2) {
@@ -53,5 +55,10 @@ int main(int argc, char const *argv[])
             return 1;
         }
     }
+
+    run_shell_loop(input_fd);
+
+    if (argc == 2) close(input_fd);
+
     return 0;
 }
