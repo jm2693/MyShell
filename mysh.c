@@ -6,12 +6,12 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
-#define MAX_COMMAND_LENGTH 1024
+#define BUF 1024
 
 
 void run_shell_loop (int mode_fd) {
-    char command[MAX_COMMAND_LENGTH];
-    char *args[MAX_COMMAND_LENGTH-1];
+    char command[BUF];
+    char *args[BUF-1];
     int is_interactive = isatty(STDIN_FILENO);      
 
     while (1) {
@@ -19,9 +19,9 @@ void run_shell_loop (int mode_fd) {
             printf("mysh> ");
         }
 
-        ssize_t bytes_read = read(mode_fd, command, MAX_COMMAND_LENGTH);
+        ssize_t bytes_read = read(mode_fd, command, BUF);
 
-        ssize_t bytes_read = read(mode_fd, command, MAX_COMMAND_LENGTH);
+        ssize_t bytes_read = read(mode_fd, command, BUF);
         if (bytes_read < 0) {
             printf("Error reading command\n");
             continue;
