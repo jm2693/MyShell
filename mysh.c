@@ -10,7 +10,7 @@
 #define LINE_BUF 512
 #define TOKEN_BUF 64
 
-char* parse_command();
+char* parse_command(int input_fd);
 char** tokenize(char* line);
 
 char **tokenize(char* line) {
@@ -69,7 +69,7 @@ char **tokenize(char* line) {
 }
 
 // function used to parse through input lines (either file or standard input)
-char *parse_command(){
+char *parse_command(int input_fd){
     int bufSize = LINE_BUF;      // buffer size for command length
     int pos = 0;                 // position of bufSize
     char *buffer = (char*)malloc(sizeof(char) * bufSize);   // malloc buffer for command
@@ -81,12 +81,12 @@ char *parse_command(){
 
     // parses through input lines (standard input or file)
     while(1) {
-        ssize_t bytes_read = read(STDIN_FILENO, &buffer[pos], 1);  
+        ssize_t bytes_read = read(input_fd, &buffer[pos], 1);  
         if (bytes_read < 0) {
             printf("Error reading command\n");
             return EXIT_FAILURE;
         } 
-        else if (isatty(STDIN_FILENO)) {      // if in interactive mode
+        else if (isatty(input_fd)) {      // if in interactive mode
             if (bytes_read == 0) {
                 printf("End of input. Exiting shell program.\n");
                 buffer[pos] = '\0';
@@ -94,7 +94,7 @@ char *parse_command(){
             } else buffer[pos] = bytes_read;
             // break; why did i break?
         } 
-        else if (!(isatty(STDIN_FILENO))) {   // if in bash mode
+        else if (!(isatty(input_fd))) {   // if in bash mode
             if (bytes_read == 0 || buffer[pos] == '\n') {
                 buffer[pos] = '\0';
                 return buffer;
@@ -115,7 +115,7 @@ char *parse_command(){
 }
 
 // shell loop that will constantly check for input and parse arguments
-void run_shell_loop (int fd) {
+void run_shell_loop (int input_fd) {
     char *command;
     char **args;
     int is_interactive = isatty(STDIN_FILENO);      // is from terminal?
@@ -125,7 +125,7 @@ void run_shell_loop (int fd) {
             printf("mysh> ");
         }
 
-        command = parse_command();
+        command = parse_command(input_fd);
         args = tokenize(parse_command);
         // missing execution
 
