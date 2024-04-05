@@ -47,6 +47,17 @@ char **tokenize(char* line) {
                 // reset token pointer to NULL for the next token
                 token = NULL;
             }
+        else if(strch("<", *line) != NULL || strch(">", *line) || strch("|", *line)){
+            token[pos] = *line;
+            pos++;
+            if (pos >= bufSize) {
+                    bufSize += TOKEN_BUF;
+                    tokens = realloc(tokens, bufSize * sizeof(char*));
+                    if (!tokens) {
+                        printf("mysh: allocation error\n");
+                        exit(EXIT_FAILURE);
+                    }
+        }
         } else {
             // if the character is not a delimiter, check if token is NULL
             // if token is NULL, it means we have encountered the start of a new token
