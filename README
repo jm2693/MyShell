@@ -4,7 +4,10 @@ Daniel Li - dal273
 
 What The Program Must Do:
     - Run in Interactive Mode 
+        - No arguments (not including program name)
     - Run in Bash Mode
+        - ONE argument (not including program name)
+    -Both
 
 Things We Will Need:
     - PID 

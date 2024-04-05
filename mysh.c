@@ -10,6 +10,9 @@
 #define LINE_BUF 512
 #define TOKEN_BUF 64
 
+char* parse_command();
+char** tokenize(char* line);
+
 char **tokenize(char* line) {
     int bufSize = TOKEN_BUF;
     int pos = 0;
@@ -23,16 +26,16 @@ char **tokenize(char* line) {
     }
 
     while (*line) {
-        // Check if the current character is a delimiter
+        // check if the current character is a delimiter
         if (strchr(delim, *line) != NULL) {
-            // Replace the delimiter with a null terminator to end the current token
+            // replace the delimiter with a null terminator to end the current token
             *line = '\0';
-            // If token is not NULL (i.e., there is content), add it to tokens array
+            // if token is not NULL (i.e., there is content), add it to tokens array
             if (token != NULL) {
-                // Allocate memory for the token
+                // allocate memory for the token
                 tokens[pos] = token;
                 pos++;
-                // Check if we need to reallocate memory for tokens array
+                // check if we need to reallocate memory for tokens array
                 if (pos >= bufSize) {
                     bufSize += TOKEN_BUF;
                     tokens = realloc(tokens, bufSize * sizeof(char*));
@@ -41,57 +44,63 @@ char **tokenize(char* line) {
                         exit(EXIT_FAILURE);
                     }
                 }
-                // Reset token pointer to NULL for the next token
+                // reset token pointer to NULL for the next token
                 token = NULL;
             }
         } else {
-            // If the character is not a delimiter, check if token is NULL
-            // If token is NULL, it means we have encountered the start of a new token
+            // if the character is not a delimiter, check if token is NULL
+            // if token is NULL, it means we have encountered the start of a new token
             if (token == NULL) {
-                // Set the token pointer to the current position in the line
+                // set the token pointer to the current position in the line
                 token = line;
             }
         }
-        // Move to the next character in the line
+        // move to the next character in the line
         line++;
     }
-    // Add the last token to tokens array if it exists
+    // add the last token to tokens array if it exists
     if (token != NULL) {
         tokens[pos] = token;
         pos++;
     }
-    // Add NULL as the last element to indicate the end of tokens array
+    // add NULL as the last element to indicate the end of tokens array
     tokens[pos] = NULL;
     return tokens;
 }
 
 // function used to parse through input lines (either file or standard input)
-char *read_line(){
+char *parse_command(){
     int bufSize = LINE_BUF;      // buffer size for command length
-    int pos = 0;            // position of bufSize
+    int pos = 0;                 // position of bufSize
     char *buffer = (char*)malloc(sizeof(char) * bufSize);   // malloc buffer for command
 
     if(!buffer){
         printf("mysh: allocation error \n"); 
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
     // parses through input lines (standard input or file)
     while(1) {
-        ssize_t bytes_read = read(STDIN_FILENO, &buffer[pos], 1);
+        ssize_t bytes_read = read(STDIN_FILENO, &buffer[pos], 1);  
         if (bytes_read < 0) {
             printf("Error reading command\n");
-            continue;
-        } else if (isatty(STDIN_FILENO)) {      // if in interactive mode
-            if (bytes_read == 0)
+            return EXIT_FAILURE;
+        } 
+        else if (isatty(STDIN_FILENO)) {      // if in interactive mode
+            if (bytes_read == 0) {
                 printf("End of input. Exiting shell program.\n");
-            break;
-        } else if (!(isatty(STDIN_FILENO))) {   // if in bash mode
+                buffer[pos] = '\0';
+                return buffer;
+            } else buffer[pos] = bytes_read;
+            // break; why did i break?
+        } 
+        else if (!(isatty(STDIN_FILENO))) {   // if in bash mode
             if (bytes_read == 0 || buffer[pos] == '\n') {
                 buffer[pos] = '\0';
                 return buffer;
-            }
-        } else pos++;
+            } else buffer[pos] = bytes_read;
+        }
+        pos++;
 
         // add size of buffer if runs out of memory
         if (pos >= bufSize){
@@ -106,7 +115,7 @@ char *read_line(){
 }
 
 // shell loop that will constantly check for input and parse arguments
-void run_shell_loop () {
+void run_shell_loop (int fd) {
     char *command;
     char **args;
     int is_interactive = isatty(STDIN_FILENO);      // is from terminal?
@@ -116,8 +125,8 @@ void run_shell_loop () {
             printf("mysh> ");
         }
 
-        command = read_line();
-        args = tokenize(read_line);
+        command = parse_command();
+        args = tokenize(parse_command);
         // missing execution
 
         free(command);
@@ -128,14 +137,26 @@ void run_shell_loop () {
 
 int main(int argc, char const *argv[])
 {
+    // file descriptor for input
+    int input_fd;
+
     // this program takes in at most 2 arguments including the program name. any more results in error
     if (argc > 2) {
         printf("The program, %s, takes in either 0 or 1 argument(s)\n", argv[0]);
         return 1;
     }
 
+    // used to determine whether the program will run in interactive or bash mode
+    if (argc == 2) {
+        input_fd = open(argv[1], O_RDONLY);
+        if (input_fd < 0) {
+            perror("Error opening file");
+            return EXIT_FAILURE;
+        }
+    } else input_fd = STDIN_FILENO;
+
     // one major loop that runs the shell in both modes
-    run_shell_loop();
+    run_shell_loop(input_fd);
 
     return EXIT_SUCCESS;
 }
