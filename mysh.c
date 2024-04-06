@@ -69,7 +69,7 @@ char **tokenize(char* line) {
 }
 
 // function used to parse through input lines (either file or standard input)
-char *parse_command(int input_fd){
+char *parse_command(int input_fd) {
     int bufSize = LINE_BUF;      // buffer size for command length
     int pos = 0;                 // position of bufSize
     char *buffer = (char*)malloc(sizeof(char) * bufSize);   // malloc buffer for command
@@ -115,7 +115,7 @@ char *parse_command(int input_fd){
 }
 
 // shell loop that will constantly check for input and parse arguments
-void run_shell_loop (int input_fd) {
+void run_shell_loop (int input_fd) { 
     char *command;
     char **args;
     int is_interactive = isatty(STDIN_FILENO);      // is from terminal?
@@ -125,8 +125,12 @@ void run_shell_loop (int input_fd) {
             printf("mysh> ");
         }
 
+        // reads line of input
         command = parse_command(input_fd);
+
+        // tokenizes line of input
         args = tokenize(parse_command);
+
         // missing execution
 
         free(command);
@@ -147,13 +151,15 @@ int main(int argc, char const *argv[])
     }
 
     // used to determine whether the program will run in interactive or bash mode
-    if (argc == 2) {
-        input_fd = open(argv[1], O_RDONLY);
-        if (input_fd < 0) {
-            perror("Error opening file");
-            return EXIT_FAILURE;
-        }
-    } else input_fd = STDIN_FILENO;
+    if (isatty(STDIN_FILENO)) 
+        input_fd = STDIN_FILENO;
+    else input_fd = open(argv[1], O_RDONLY);
+
+    // check for fd error
+    if (input_fd < 0) {
+        perror("Error reading from input");
+        return EXIT_FAILURE;
+    }
 
     // one major loop that runs the shell in both modes
     run_shell_loop(input_fd);
