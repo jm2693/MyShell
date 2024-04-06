@@ -151,10 +151,11 @@ void run_shell_loop (int input_fd) {
         free(command);
         free(args);
 
-        if (is_interactive) {
-            printf("Goodbye!");
-        }
     } 
+
+    if (is_interactive) {
+        printf("Goodbye!");
+    }
 
 }
 
