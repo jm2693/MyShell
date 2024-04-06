@@ -47,17 +47,6 @@ char **tokenize(char* line) {
                 // reset token pointer to NULL for the next token
                 token = NULL;
             }
-        else if(strchr("<", *line) != NULL || strchr(">", *line) || strchr("|", *line)){
-            token[pos] = *line;
-            pos++;
-            if (pos >= bufSize) {
-                    bufSize += TOKEN_BUF;
-                    tokens = realloc(tokens, bufSize * sizeof(char*));
-                    if (!tokens) {
-                        printf("mysh: allocation error\n");
-                        exit(EXIT_FAILURE);
-                    }
-        }
         } else {
             // if the character is not a delimiter, check if token is NULL
             // if token is NULL, it means we have encountered the start of a new token
@@ -77,8 +66,8 @@ char **tokenize(char* line) {
     // add NULL as the last element to indicate the end of tokens array
     tokens[pos] = NULL;
     return tokens;
-    }
 }
+
 
 // function used to parse through input lines (either file or standard input)
 char *parse_command(int input_fd) {
@@ -147,11 +136,27 @@ void run_shell_loop (int input_fd) {
         // tokenizes line of input
         args = tokenize(command);
 
-        // missing execution
+        //wildcard *
+        if(strchr("*", args) != NULL){
+            
+        }
 
+
+
+        //exit code part 
+        if(strchr("exit", args) != NULL){
+            exit(EXIT_SUCCESS); 
+        }
+
+        // missing execution
         free(command);
         free(args);
+
     } 
+
+    if (is_interactive) {
+        printf("Goodbye!");
+    }
 
 }
 
