@@ -147,6 +147,11 @@ void run_shell_loop (int input_fd) {
         // tokenizes line of input
         args = tokenize(command);
 
+        
+        if(strchr("exit", args) != NULL){
+            exit(EXIT_SUCCESS); 
+        }
+
         // missing execution
         free(command);
         free(args);
