@@ -76,7 +76,7 @@ char *parse_command(int input_fd) {
 
     if(!buffer){
         printf("mysh: allocation error \n"); 
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
 
     // parses through input lines (standard input or file)
@@ -84,7 +84,7 @@ char *parse_command(int input_fd) {
         ssize_t bytes_read = read(input_fd, &buffer[pos], 1);  
         if (bytes_read < 0) {
             printf("Error reading command\n");
-            return EXIT_FAILURE;
+            exit(EXIT_FAILURE);
         } 
         else if (isatty(input_fd)) {      // if in interactive mode
             if (bytes_read == 0) {
@@ -107,7 +107,7 @@ char *parse_command(int input_fd) {
             bufSize += LINE_BUF;
             buffer = realloc(buffer, bufSize);
             if(!buffer){
-                printf(stderr, "mysh: allocation error \n"); 
+                printf("mysh: allocation error \n"); 
                 exit(EXIT_FAILURE);
             }
         }
@@ -129,7 +129,7 @@ void run_shell_loop (int input_fd) {
         command = parse_command(input_fd);
 
         // tokenizes line of input
-        args = tokenize(parse_command);
+        args = tokenize(command);
 
         // missing execution
 
