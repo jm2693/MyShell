@@ -148,9 +148,12 @@ void run_shell_loop (int input_fd) {
         args = tokenize(command);
 
         // missing execution
-
         free(command);
         free(args);
+
+        if (is_interactive) {
+            printf("Goodbye!");
+        }
     } 
 
 }
