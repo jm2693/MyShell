@@ -10,7 +10,7 @@
 #define LINE_BUF 512
 #define TOKEN_BUF 64
 
-char* parse_command();
+char* read_command();
 char** tokenize(char* line);
 
 void print_prompt() {
@@ -60,7 +60,7 @@ char **tokenize(char* line) {
 }
 
 // function used to parse through input lines (either file or standard input)
-char *parse_command() {
+char *read_command() {
     int bufSize = LINE_BUF;      // buffer size for command length
     int pos = 0;                 // position of bufSize
     char *buffer = (char*)malloc(sizeof(char) * bufSize);   // malloc buffer for command
@@ -78,14 +78,12 @@ char *parse_command() {
             exit(EXIT_FAILURE);
         } 
         else if ((isatty(STDIN_FILENO)) == 1) {      // if in interactive mode
-            if (bytes_read == 0) {
-                printf("End of input. Exiting shell program.\n");
+            if (bytes_read == 0 || buffer[pos] == '\n') {
                 buffer[pos] = '\0';
                 return buffer;
             } else buffer[pos] = bytes_read;
-            // break; why did i break?
         } 
-        else if ((isatty(STDIN_FILENO)) != 1) {     // if in bash mode
+        else if (isatty(STDIN_FILENO) != 1) {        // if in bash mode
             if (bytes_read == 0 || buffer[pos] == '\n') {
                 buffer[pos] = '\0';
                 return buffer;
@@ -110,14 +108,18 @@ void run_shell_loop (int is_interactive) {
     char *command;
     char **args;
 
+    if (is_interactive == 1) {
+            printf("mysh> ");
+    } 
+    else if (is_interactive == 0) printf("goodbye ");
+
     while (1) {
         
-        if (is_interactive == 1) {
+        if (is_interactive == 1)
             printf("mysh> ");
-        } else if (is_interactive == 0) printf("goodbye ");
 
         // reads line of input
-        command = parse_command();
+        command = read_command();
 
         // tokenizes line of input
         args = tokenize(command);
@@ -154,7 +156,7 @@ int main(int argc, char **argv)
     }
 
     // one major loop that runs the shell in both modes
-    //run_shell_loop(is_interactive);
+    run_shell_loop(is_interactive);
 
     return EXIT_SUCCESS;
 }
