@@ -77,18 +77,23 @@ char *read_command() {
             printf("Error reading command\n");
             exit(EXIT_FAILURE);
         } 
-        else if ((isatty(STDIN_FILENO)) == 1) {      // if in interactive mode
-            if (bytes_read == 0 || buffer[pos] == '\n') {
-                buffer[pos] = '\0';
-                return buffer;
-            } else buffer[pos] = bytes_read;
-        } 
-        else if (isatty(STDIN_FILENO) != 1) {        // if in bash mode
-            if (bytes_read == 0 || buffer[pos] == '\n') {
-                buffer[pos] = '\0';
-                return buffer;
-            } else buffer[pos] = bytes_read;
+        else if (bytes_read == 0 || buffer[pos] == '\n') {
+            buffer[pos] = '\0';
+            return buffer;
         }
+        else buffer[pos] = bytes_read;
+        // else if ((isatty(STDIN_FILENO)) == 1) {      // if in interactive mode
+        //     if (bytes_read == 0 || buffer[pos] == '\n') {
+        //         buffer[pos] = '\0';
+        //         return buffer;
+        //     } else buffer[pos] = bytes_read;
+        // } 
+        // else if (isatty(STDIN_FILENO) != 1) {        // if in bash mode
+        //     if (bytes_read == 0 || buffer[pos] == '\n') {
+        //         buffer[pos] = '\0';
+        //         return buffer;
+        //     } else buffer[pos] = bytes_read;
+        // }
         pos++;
 
         // add size of buffer if runs out of memory
