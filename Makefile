@@ -5,7 +5,7 @@ OBJ = mysh.c
 %.o: %.c $(DEPS)
 	$(CC) -c -g -o $@ $< $(CFLAGS)
 
-spchk: $(OBJ)
+mysh: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:

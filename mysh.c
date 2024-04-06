@@ -120,7 +120,11 @@ void run_shell_loop (int input_fd) {
     char **args;
     int is_interactive = isatty(STDIN_FILENO);      // is from terminal?
 
+    printf("step 1");
     while (1) {
+        printf("step 2");
+        
+
         if (is_interactive) {
             printf("mysh> ");
         }
