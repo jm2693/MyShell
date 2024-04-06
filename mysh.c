@@ -77,6 +77,7 @@ char **tokenize(char* line) {
     // add NULL as the last element to indicate the end of tokens array
     tokens[pos] = NULL;
     return tokens;
+    }
 }
 
 // function used to parse through input lines (either file or standard input)
