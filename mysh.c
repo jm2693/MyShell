@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
-#define DELIM " \n"
+#define DELIM " \t\r\n\a"
 #define LINE_BUF 512
 #define TOKEN_BUF 64
 
@@ -150,9 +150,7 @@ int main(int argc, char **argv)
     } 
 
     // welcome prompt if interactive
-    if (is_interactive == 1) {  
-        print_prompt();
-    } 
+    print_prompt();
 
     // check for fd error
     if (STDIN_FILENO < 0) {
