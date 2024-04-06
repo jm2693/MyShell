@@ -47,7 +47,7 @@ char **tokenize(char* line) {
                 // reset token pointer to NULL for the next token
                 token = NULL;
             }
-        else if(strch("<", *line) != NULL || strch(">", *line) || strch("|", *line)){
+        else if(strchr("<", *line) != NULL || strchr(">", *line) || strchr("|", *line)){
             token[pos] = *line;
             pos++;
             if (pos >= bufSize) {
