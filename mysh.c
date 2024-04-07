@@ -2295,8 +2295,8 @@
 
 
 
-// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES
-// WHAT NEEDS WORK: BATCH, 
+// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH
+// WHAT NEEDS WORK: 
 // WHAT DOESN'T WORK: PIPING, REDIRECTING
 
 
@@ -2319,6 +2319,8 @@
 void print_prompt() {
     write(STDOUT_FILENO, "mysh> ", 6);
 }
+
+// useses execvp
 
 // int execute_command(char **args, int input_fd, int output_fd) {
 //     pid_t pid = fork();
@@ -2349,7 +2351,7 @@ void print_prompt() {
 // }
 
 
-
+// doesn't use access
 int execute_command(char **args, int input_fd, int output_fd) {
     pid_t pid;
     int status;
@@ -2371,6 +2373,7 @@ int execute_command(char **args, int input_fd, int output_fd) {
             char *full_path = malloc(strlen(paths[i]) + strlen(args[0]) + 1);
             strcpy(full_path, paths[i]);
             strcat(full_path, args[0]);
+            //if (access(full_path, X_OK)) hmmmmm
             execv(full_path, args);
             // If execv returns, it means an error occurred
             free(full_path);
@@ -2394,9 +2397,6 @@ int execute_command(char **args, int input_fd, int output_fd) {
     printf("Command not found: %s\n", args[0]);
     return 1;
 }
-
-
-
 
 // Function to handle wildcard expansion
 int handle_wildcard(char **args) {
@@ -2451,7 +2451,7 @@ int main(int argc, char *argv[]) {
     }
 
     while (1) {
-        if (input_fd == STDIN_FILENO) {
+        if (isatty(input_fd)) {
             print_prompt();
         }
 
