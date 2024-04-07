@@ -80,7 +80,7 @@ int execute_built_in_command(char *argv[] ) {
     if (strcmp(argv[0], "cd") == 0) {
         // cd command
         if (argv[1] == NULL || argv[2] != NULL) {
-            fprintf(stderr, "cd: Error Number of Parameters\n");
+            printf(stderr, "cd: Error Number of Parameters\n");
             return EXIT_FAILURE;
         } else if (chdir(argv[1]) != 0) {
             perror("cd");
@@ -100,12 +100,12 @@ int execute_built_in_command(char *argv[] ) {
     } 
     else if(strcmp(argv[0], "which") == 0) {
         if (argv[1] == NULL || argv[2] != NULL) {
-            fprintf(stderr, "which: must provide one and only one parameter");
+            printf(stderr, "which: must provide one and only one parameter");
             return EXIT_FAILURE;
         }
         char pathname[FILENAME_MAX] = "";
         if(get_command_path_name(argv[1], pathname) == EXIT_FAILURE) {
-            fprintf(stderr, "which: command not found\n");
+            printf(stderr, "which: command not found\n");
             return EXIT_FAILURE;
         }
         else if(pathname[0] != '\0'){
@@ -355,122 +355,75 @@ int parse_and_execute(char *command, int last_status) {
     return ret;
 }
 
-void batch_mode(const char *filename) {
+void run_shell_loop(int input_fd) {
   char command[MAX_COMMAND_LENGTH];
   int last_status = EXIT_SUCCESS;
-  FILE *file = fopen(filename, "r");
-  if (!file) {
-    perror("open file error");
-    exit(EXIT_FAILURE);
-  }
-  while (fgets(command, MAX_COMMAND_LENGTH, file)) {
-    command[strcspn(command, "\n")] = 0;
-    if (strlen(command) == 0) {
-        continue;
-    }
-    else if (strcmp(command, "exit") == 0) {
-      printf("mysh: exiting\n");
-      break;
-    }
-    last_status = parse_and_execute(command, last_status);
-  }
 
-  fclose(file);
-}
+  printf("Welcome to the shell!\n");
 
-void interactive_mode() {
-  char command[MAX_COMMAND_LENGTH];
-  int last_status = EXIT_SUCCESS;
-  printf("welcome to the shell！\n");
+  // Main loop for reading and executing commands
   while (1) {
-    printf("mysh> ");
-    if (!fgets(command, MAX_COMMAND_LENGTH, stdin)) {
-      // if get wrong command
+    ssize_t bytes_read;
+
+    // Read command from input file descriptor
+    if ((bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH)) == -1) {
+      perror("Error reading from input");
       break;
     }
 
-    // remove line break
-    command[strcspn(command, "\n")] = 0;
+    // Check for end of file
+    if (bytes_read == 0) {
+      break;
+    }
 
-    // if input 'exit', then 'exit'
+    // Null-terminate the command string
+    command[bytes_read] = '\0';
+
+    // Remove newline character
+    command[strcspn(command, "\n")] = '\0';
+
+    // Check for exit command
     if (strcmp(command, "exit") == 0) {
       printf("mysh: exiting\n");
       break;
     }
 
+    // Execute command
     last_status = parse_and_execute(command, last_status);
+  }
+
+  // Close input file descriptor if not stdin
+  if (input_fd != STDIN_FILENO) {
+    close(input_fd);
   }
 }
 
-// shell loop that will constantly check for input and parse arguments
-void run_shell_loop (int input_fd) { 
-    char *command;
-    char **args;
-    int is_interactive = isatty(STDIN_FILENO);      // is from terminal?
-
-    printf("step 1");
-    while (1) {
-        printf("step 2");
-        
-
-        if (is_interactive) {
-            printf("mysh> ");
-        }
-
-        // reads line of input
-        command = parse_command(input_fd);
-
-        // tokenizes line of input
-        args = tokenize(command);
-
-        //wildcard *
-        if(strchr("*", args) != NULL){
-            
-        }
-
-
-
-        //exit code part 
-        if(strchr("exit", args) != NULL){
-            exit(EXIT_SUCCESS); 
-        }
-
-        // missing execution
-        free(command);
-        free(args);
-
-    } 
-
-    if (is_interactive) {
-        printf("Goodbye!");
-    }
-
-}
-
 int main(int argc, char *argv[]) {
-  
   // file descriptor for input
-    int input_fd;
+  int input_fd;
 
-    // this program takes in at most 2 arguments including the program name. any more results in error
-    if (argc > 2) {
-        printf("The program, %s, takes in either 0 or 1 argument(s)\n", argv[0]);
-        return 1;
-    }
+  // this program takes at most 1 argument, which is the filename
+  if (argc > 2) {
+    printf("Usage: %s [filename]\n", argv[0]);
+    return EXIT_FAILURE;
+  }
 
-    // used to determine whether the program will run in interactive or bash mode
-    if (isatty(STDIN_FILENO)) 
-        input_fd = STDIN_FILENO;
-    else input_fd = open(argv[1], O_RDONLY);
+  // determine if the program will run in interactive or batch mode
+  if (argc == 2) {
+    input_fd = open(argv[1], O_RDONLY);
+  } else {
+    // if no filename provided, use stdin
+    input_fd = STDIN_FILENO;
+  }
 
-    // check for fd error
-    if (input_fd < 0) {
-        perror("Error reading from input");
-        return EXIT_FAILURE;
-    }
+  // check for fd error
+  if (input_fd == -1) {
+    perror("Error opening input file");
+    return EXIT_FAILURE;
+  }
 
-    // one major loop that runs the shell in both modes
-    run_shell_loop(input_fd);
+  // run the shell loop
+  run_shell_loop(input_fd);
 
-  return 0;
+  return EXIT_SUCCESS;
 }
