@@ -12,7 +12,6 @@
 #define MAX_ARGS 512
 
 int get_command_path_name(char* command, char path[]) {
-    
     if(strcmp(command, "cd") == 0 || strcmp(command, "pwd") == 0 || strcmp(command, "which") == 0) {
         return EXIT_SUCCESS;
     }
@@ -21,18 +20,16 @@ int get_command_path_name(char* command, char path[]) {
         return EXIT_SUCCESS;
     }
     else {
-        char searchpath[3][FILENAME_MAX] = {"/usr/local/bin/", "/usr/bin/", "/bin/" };
+        char searchpath[3][FILENAME_MAX] = {"/usr/local/bin/", "/usr/bin/", "/bin/"};
         for(int i = 0; i < 3; i++) {
-            strcat(searchpath[i], command);
-            if(access(searchpath[i], X_OK) == 0) {
-                strcpy(path, searchpath[i]);
+            strcpy(path, searchpath[i]);
+            strcat(path, command); // Concatenate command name with directory path
+            if(access(path, X_OK) == 0) {
                 return EXIT_SUCCESS;
-
             }
         }
     }
     return EXIT_FAILURE;
-
 }
 
 int redirect_std(char redirectname[2][FILENAME_MAX], int *saved_stdout, int *saved_stdin) {
@@ -365,7 +362,7 @@ void run_shell_loop(int input_fd) {
     while (1) {
         // Check if standard input is a terminal
         if (isatty(STDIN_FILENO)) {
-            printf("mysh> ");  // Print newline to flush output buffer
+            printf("mysh> \n");  // Print the prompt only in interactive mode
         }
 
         ssize_t bytes_read;
