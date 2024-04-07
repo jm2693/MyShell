@@ -97,7 +97,7 @@ int execute_built_in_command(char *argv[] ) {
     } 
     else if(strcmp(argv[0], "which") == 0) {
         if (argv[1] == NULL || argv[2] != NULL) {
-            printf("which: must provide one and only one parameter");
+            printf("which: must provide one and only one parameter\n");
             return EXIT_FAILURE;
         }
         char pathname[FILENAME_MAX] = "";
@@ -356,13 +356,11 @@ void run_shell_loop(int input_fd) {
     char command[MAX_COMMAND_LENGTH];
     int last_status = EXIT_SUCCESS;
 
-    printf("Welcome to the shell!\n");
-
     // Main loop for reading and executing commands
     while (1) {
         // Check if standard input is a terminal
         if (isatty(STDIN_FILENO)) {
-            printf("mysh> \n");  // Print the prompt only in interactive mode
+            printf("mysh> ");  // Print the prompt only in interactive mode
         }
 
         ssize_t bytes_read;
