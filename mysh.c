@@ -2295,8 +2295,8 @@
 
 
 
-// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS
-// WHAT NEEDS WORK: BATCH, BARENAMES
+// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES
+// WHAT NEEDS WORK: BATCH, 
 // WHAT DOESN'T WORK: PIPING, REDIRECTING
 
 
@@ -2311,40 +2311,92 @@
 #include <errno.h>
 #include <glob.h>
 
+#define PATHS { "/usr/local/bin/", "/usr/bin/", "/bin/" }
 #define MAX_COMMAND_LENGTH 1024
 #define MAX_ARGS 64
+#define NUM_PATHS 3
 
 void print_prompt() {
     write(STDOUT_FILENO, "mysh> ", 6);
 }
 
+// int execute_command(char **args, int input_fd, int output_fd) {
+//     pid_t pid = fork();
+//     if (pid == 0) {
+//         // Child process
+//         if (input_fd != STDIN_FILENO) {
+//             dup2(input_fd, STDIN_FILENO);
+//             close(input_fd);
+//         }
+//         if (output_fd != STDOUT_FILENO) {
+//             dup2(output_fd, STDOUT_FILENO);
+//             close(output_fd);
+//         }
+//         execvp(args[0], args);
+//         // If execvp returns, it means an error occurred
+//         perror("execvp");
+//         exit(EXIT_FAILURE);
+//     } else if (pid < 0) {
+//         // Fork failed
+//         perror("fork");
+//         return -1;
+//     } else {
+//         // Parent process
+//         int status;
+//         waitpid(pid, &status, 0);
+//         return WEXITSTATUS(status);
+//     }
+// }
+
+
+
 int execute_command(char **args, int input_fd, int output_fd) {
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child process
-        if (input_fd != STDIN_FILENO) {
-            dup2(input_fd, STDIN_FILENO);
-            close(input_fd);
+    pid_t pid;
+    int status;
+    char *paths[] = PATHS;
+    
+    for (int i = 0; i < NUM_PATHS; i++) {
+        pid = fork();
+        if (pid == 0) {
+            // Child process
+            if (input_fd != STDIN_FILENO) {
+                dup2(input_fd, STDIN_FILENO);
+                close(input_fd);
+            }
+            if (output_fd != STDOUT_FILENO) {
+                dup2(output_fd, STDOUT_FILENO);
+                close(output_fd);
+            }
+            // Construct the full path to the command
+            char *full_path = malloc(strlen(paths[i]) + strlen(args[0]) + 1);
+            strcpy(full_path, paths[i]);
+            strcat(full_path, args[0]);
+            execv(full_path, args);
+            // If execv returns, it means an error occurred
+            free(full_path);
+            _exit(EXIT_FAILURE);
+        } else if (pid < 0) {
+            // Fork failed
+            perror("fork");
+            return 1;
+        } else {
+            // Parent process
+            waitpid(pid, &status, 0);
+            if (WIFEXITED(status)) {
+                int exit_status = WEXITSTATUS(status);
+                if (exit_status == 0) {
+                    return exit_status;
+                }
+            }
         }
-        if (output_fd != STDOUT_FILENO) {
-            dup2(output_fd, STDOUT_FILENO);
-            close(output_fd);
-        }
-        execvp(args[0], args);
-        // If execvp returns, it means an error occurred
-        perror("execvp");
-        exit(EXIT_FAILURE);
-    } else if (pid < 0) {
-        // Fork failed
-        perror("fork");
-        return -1;
-    } else {
-        // Parent process
-        int status;
-        waitpid(pid, &status, 0);
-        return WEXITSTATUS(status);
     }
+    // If none of the paths were successful
+    printf("Command not found: %s\n", args[0]);
+    return 1;
 }
+
+
+
 
 // Function to handle wildcard expansion
 int handle_wildcard(char **args) {
