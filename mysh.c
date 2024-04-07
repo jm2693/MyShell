@@ -356,48 +356,51 @@ int parse_and_execute(char *command, int last_status) {
 }
 
 void run_shell_loop(int input_fd) {
-  char command[MAX_COMMAND_LENGTH];
-  int last_status = EXIT_SUCCESS;
+    char command[MAX_COMMAND_LENGTH];
+    int last_status = EXIT_SUCCESS;
 
-  printf("Welcome to the shell!\n");
+    printf("Welcome to the shell!\n");
 
-  // Main loop for reading and executing commands
-  while (1) {
+    // Main loop for reading and executing commands
+    while (1) {
+        // Check if standard input is a terminal
+        if (isatty(STDIN_FILENO)) {
+            printf("mysh> ");  // Print newline to flush output buffer
+        }
 
-    if (isatty(STDIN_FILENO) == 1) printf("mysh> ");
-    ssize_t bytes_read;
+        ssize_t bytes_read;
 
-    // Read command from input file descriptor
-    if ((bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH)) == -1) {
-      perror("Error reading from input");
-      break;
+        // Read command from input file descriptor
+        if ((bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH)) == -1) {
+            perror("Error reading from input");
+            break;
+        }
+
+        // Check for end of file
+        if (bytes_read == 0) {
+            break;
+        }
+
+        // Null-terminate the command string
+        command[bytes_read] = '\0';
+
+        // Remove newline character
+        command[strcspn(command, "\n")] = '\0';
+
+        // Check for exit command
+        if (strcmp(command, "exit") == 0) {
+            printf("mysh: exiting\n");
+            break;
+        }
+
+        // Execute command
+        last_status = parse_and_execute(command, last_status);
     }
 
-    // Check for end of file
-    if (bytes_read == 0) {
-      break;
+    // Close input file descriptor if not stdin
+    if (input_fd != STDIN_FILENO) {
+        close(input_fd);
     }
-
-    // Null-terminate the command string
-    command[bytes_read] = '\0';
-
-    // Remove newline character
-    command[strcspn(command, "\n")] = '\0';
-
-    // Check for exit command
-    if (strcmp(command, "exit") == 0) {
-      printf("mysh: exiting\n");
-      break;
-    }
-
-    // Execute command
-    last_status = parse_and_execute(command, last_status);
-  }
-
-  // Close input file descriptor if not stdin
-  if (input_fd != STDIN_FILENO) {
-    close(input_fd);
-  }
 }
 
 int main(int argc, char *argv[]) {
