@@ -2295,9 +2295,9 @@
 
 
 
-// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH
-// WHAT NEEDS WORK: WHICH
-// WHAT DOESN'T WORK: PIPING, REDIRECTING, CONDITIONALS
+// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH, WHICH
+// WHAT NEEDS WORK: 
+// WHAT DOESN'T WORK: PIPING, REDIRECTING, CONDITIONALS, PATH-TO-PROGRAM
 // OTHER ISSUES: PRESSING BLANK ENTER IN INTERACTIVE MODE => READ MEMORY ACCESS ERROR 
 
 
@@ -2410,6 +2410,8 @@ int handle_wildcard(char **args) {
         num_args++;
     }
 
+    // glob took way too long to figure out
+    // there was probably a better way to do this
     for (i = 0; i < num_args; i++) {
         if (strchr(args[i], '*') != NULL) {
             if (glob(args[i], flags, NULL, &glob_result) == 0) {
@@ -2436,6 +2438,8 @@ int handle_wildcard(char **args) {
 int run_shell(int input_fd) {
     char command[MAX_COMMAND_LENGTH];
     char *args[MAX_ARGS];
+    char *paths[] = PATHS;
+    int num_paths = NUM_PATHS;
     int num_args;
     int exit_status = 0;
 
@@ -2480,29 +2484,94 @@ int run_shell(int input_fd) {
                 perror("getcwd");
             }
             continue;
-        } else if (strcmp(args[0], "which") == 0) {
+        } 
+
+
+
+
+
+
+
+        else if (strcmp(args[0], "which") == 0) {
             if (num_args != 2) {
                 write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
                 continue;
             }
-            char *path = getenv("PATH");
-            if (path != NULL) {
-                char *token = strtok(path, ":");
-                while (token != NULL) {
-                    char cmd_path[1024];
-                    snprintf(cmd_path, sizeof(cmd_path), "%s/%s", token, args[1]);
-                    if (access(cmd_path, X_OK) == 0) {
-                        write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
-                        write(STDOUT_FILENO, "\n", 1);
-                        break;
+
+            if (strcmp(args[1], "which") == 0 || strcmp(args[1], "pwd") == 0 ||
+                strcmp(args[1], "cd") == 0 || strcmp(args[1], "exit") == 0) {
+                        continue;
                     }
-                    token = strtok(NULL, ":");
+
+            // Maximum length of the command path
+            char cmd_path[MAX_COMMAND_LENGTH];
+
+            // Loop through each directory and check if the program exists
+            int found = 0;
+            for (int i = 0; i < num_paths; i++) {
+                int dir_length = strlen(paths[i]);
+                int cmd_length = strlen(args[1]);
+                if (dir_length + cmd_length + 2 > MAX_COMMAND_LENGTH) {
+                    // Path length exceeds maximum length
+                    write(STDERR_FILENO, "which: Path length exceeds maximum\n", 36);
+                    continue;
                 }
-            } else {
-                write(STDERR_FILENO, "which: PATH environment variable not set\n", 42);
+                // Construct the path
+                strcpy(cmd_path, paths[i]);
+                //strcat(cmd_path, "/");
+                strcat(cmd_path, args[1]);
+                if (access(cmd_path, X_OK) == 0) {
+                    // Print the path and exit the loop
+                    write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
+                    write(STDOUT_FILENO, "\n", 1);
+                    found = 1;
+                    break;
+                }
             }
+
+            // If the program is not found in any directory, print an error message
+            if (!found) {
+                write(STDERR_FILENO, "which: Program not found\n", 26);
+            }
+
             continue;
-        } else if (strcmp(args[0], "exit") == 0) {
+        }
+
+
+
+
+
+
+
+
+
+
+        
+        // else if (strcmp(args[0], "which") == 0) {
+        //     if (num_args != 2) {
+        //         write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
+        //         continue;
+        //     }
+        //     char *path = getenv("PATH");
+        //     if (path != NULL) {
+        //         char *token = strtok(path, ":");
+        //         while (token != NULL) {
+        //             char cmd_path[1024];
+        //             snprintf(cmd_path, sizeof(cmd_path), "%s/%s", token, args[1]);
+        //             if (access(cmd_path, X_OK) == 0) {
+        //                 write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
+        //                 write(STDOUT_FILENO, "\n", 1);
+        //                 break;
+        //             }
+        //             token = strtok(NULL, ":");
+        //         }
+        //     } else {
+        //         write(STDERR_FILENO, "which: PATH environment variable not set\n", 42);
+        //     }
+        //     continue;
+        // } 
+        
+        else if (strcmp(args[0], "exit") == 0) {
             if (num_args > 1) {
                 write(STDOUT_FILENO, "Exiting with status: ", 22);
                 write(STDOUT_FILENO, args[1], strlen(args[1]));

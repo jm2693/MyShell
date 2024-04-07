@@ -15,7 +15,14 @@ What The Program Must Do:
         - PIPING
         - REDIRECTING 
         - CONDITIONALS
-        
+        - BUILT-INS
+            - exit
+            - cd
+            - pwd
+            - which
+        - BARENAMES
+        - PATHNAMES
+
 
 Things We Will Need:
     - PID 
@@ -27,3 +34,10 @@ Things We Will Need:
         - if you run the process multiple times, it will likely have the same parent
     - Execute with Executive System Call
         - 
+
+
+Design:
+    - We use isatty(STDIN_FILENO) to determine if it should run in interactive or batch mode
+    - run_shell() creates an infinite loop which runs for both modes. it ends either when the user types 
+        - "exit" (interactive) or the input ends (batch)
+    - execute_command() 
