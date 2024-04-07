@@ -80,7 +80,7 @@ int execute_built_in_command(char *argv[] ) {
     if (strcmp(argv[0], "cd") == 0) {
         // cd command
         if (argv[1] == NULL || argv[2] != NULL) {
-            printf(stderr, "cd: Error Number of Parameters\n");
+            printf("cd: Error Number of Parameters\n");
             return EXIT_FAILURE;
         } else if (chdir(argv[1]) != 0) {
             perror("cd");
@@ -100,12 +100,12 @@ int execute_built_in_command(char *argv[] ) {
     } 
     else if(strcmp(argv[0], "which") == 0) {
         if (argv[1] == NULL || argv[2] != NULL) {
-            printf(stderr, "which: must provide one and only one parameter");
+            printf("which: must provide one and only one parameter");
             return EXIT_FAILURE;
         }
         char pathname[FILENAME_MAX] = "";
         if(get_command_path_name(argv[1], pathname) == EXIT_FAILURE) {
-            printf(stderr, "which: command not found\n");
+            printf("which: command not found\n");
             return EXIT_FAILURE;
         }
         else if(pathname[0] != '\0'){
@@ -363,6 +363,8 @@ void run_shell_loop(int input_fd) {
 
   // Main loop for reading and executing commands
   while (1) {
+
+    if (isatty(STDIN_FILENO) == 1) printf("mysh> ");
     ssize_t bytes_read;
 
     // Read command from input file descriptor
