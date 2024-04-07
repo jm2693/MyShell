@@ -2296,8 +2296,9 @@
 
 
 // WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH
-// WHAT NEEDS WORK: 
-// WHAT DOESN'T WORK: PIPING, REDIRECTING
+// WHAT NEEDS WORK: WHICH
+// WHAT DOESN'T WORK: PIPING, REDIRECTING, CONDITIONALS
+// OTHER ISSUES: PRESSING BLANK ENTER IN INTERACTIVE MODE => READ MEMORY ACCESS ERROR 
 
 
 
@@ -2437,6 +2438,11 @@ int main(int argc, char *argv[]) {
     int num_args;
     int exit_status = 0;
 
+    if (argc > 2) {
+        printf("The following program only takes in 1 additional argument: %s\n", argv[0]);
+        return 1;
+    }
+
     int input_fd = STDIN_FILENO;
     if (argc > 1) {
         input_fd = open(argv[1], O_RDONLY);
@@ -2455,7 +2461,7 @@ int main(int argc, char *argv[]) {
             print_prompt();
         }
 
-        // Read input using read() instead of fgets()
+        // reading input 
         ssize_t bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH);
         if (bytes_read <= 0) {
             // End of input stream

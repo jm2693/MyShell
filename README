@@ -5,9 +5,17 @@ Daniel Li - dal273
 What The Program Must Do:
     - Run in Interactive Mode 
         - No arguments (not including program name)
+        - print "mysh> " at every line (not including external command output)
+        - welcome and exit sequence
+            - "exit" built-in
     - Run in Bash Mode
         - ONE argument (not including program name)
-    -Both
+    -Both:
+        - WILDCARDS
+        - PIPING
+        - REDIRECTING 
+        - CONDITIONALS
+        
 
 Things We Will Need:
     - PID 
@@ -18,3 +26,4 @@ Things We Will Need:
         - multiple processes can have the same parent
         - if you run the process multiple times, it will likely have the same parent
     - Execute with Executive System Call
+        - 
