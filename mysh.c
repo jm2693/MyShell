@@ -356,13 +356,13 @@ void run_shell_loop(int input_fd) {
     char command[MAX_COMMAND_LENGTH];
     int last_status = EXIT_SUCCESS;
 
-    printf("Welcome to the shell!\n");
+    printf("Welcome to the shell!\n);
 
     // Main loop for reading and executing commands
     while (1) {
         // Check if standard input is a terminal
         if (isatty(STDIN_FILENO)) {
-            printf("mysh> \n");  // Print the prompt only in interactive mode
+            printf("mysh> ");  // Print the prompt only in interactive mode
         }
 
         ssize_t bytes_read;
