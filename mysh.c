@@ -1,5 +1,5 @@
-// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES
-// WHAT NEEDS WORK: BATCH, 
+// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH
+// WHAT NEEDS WORK: 
 // WHAT DOESN'T WORK: PIPING, REDIRECTING
 
 
@@ -23,6 +23,7 @@ void print_prompt() {
     write(STDOUT_FILENO, "mysh> ", 6);
 }
 
+// doesn't use access
 int execute_command(char **args, int input_fd, int output_fd) {
     pid_t pid;
     int status;
@@ -44,6 +45,7 @@ int execute_command(char **args, int input_fd, int output_fd) {
             char *full_path = malloc(strlen(paths[i]) + strlen(args[0]) + 1);
             strcpy(full_path, paths[i]);
             strcat(full_path, args[0]);
+            //if (access(full_path, X_OK)) hmmmmm
             execv(full_path, args);
             // If execv returns, it means an error occurred
             free(full_path);
@@ -67,9 +69,6 @@ int execute_command(char **args, int input_fd, int output_fd) {
     printf("Command not found: %s\n", args[0]);
     return 1;
 }
-
-
-
 
 // Function to handle wildcard expansion
 int handle_wildcard(char **args) {
@@ -124,7 +123,7 @@ int main(int argc, char *argv[]) {
     }
 
     while (1) {
-        if (input_fd == STDIN_FILENO) {
+        if (isatty(input_fd)) {
             print_prompt();
         }
 
@@ -146,6 +145,29 @@ int main(int argc, char *argv[]) {
         }
         args[num_args] = NULL;
 
+        char *args_command [MAX_ARGS];
+        char *args_redirect[MAX_ARGS];
+        int args_inc1;
+        if(strchr(*args, ">") != NULL || strchr(*args, "<")){
+            //redirection detected
+            for(int i = 0; i < num_args; i++){
+                if(strcmp(args[i], ">") == 0 || strcmp(args[i], "<")){
+                    args_redirect[args_inc1] = args[i];
+                    args_command[args_inc1] = " ";
+                    args_inc1++;
+                }
+                else{
+                    args_command[args_inc1] = args[i];
+                    args_redirect[args_inc1] = " "; 
+                    args_inc1++;  
+                }
+            }
+
+            if(strcmp(args_command[0],"<")){
+                
+            }
+
+        }
         if (strcmp(args[0], "cd") == 0) {
             if (num_args != 2) {
                 write(STDERR_FILENO, "cd: Invalid number of arguments\n", 32);
