@@ -197,43 +197,26 @@ int execute_command(char *argv[], char redirectname[2][FILENAME_MAX]) {
         restore_std(saved_stdin, saved_stdout);
         return EXIT_FAILURE;
     }
-    
 
-    if(get_command_path_name(argv[0], command_pathname) == EXIT_FAILURE) {
-        restore_std(saved_stdin, saved_stdout);
-        return EXIT_FAILURE;
+    // Attempt to find the full path of the command
+    if(get_command_path_name(argv[0], command_pathname) == EXIT_SUCCESS) {
+        // If the command is found, execute it
+        if (execv(command_pathname, argv) == -1) {
+            perror("execv");
+            restore_std(saved_stdin, saved_stdout);
+            return EXIT_FAILURE;
+        }
+    } else {
+        // If the command is not found, try executing it directly
+        if (execvp(argv[0], argv) == -1) {
+            perror("execvp");
+            restore_std(saved_stdin, saved_stdout);
+            return EXIT_FAILURE;
+        }
     }
 
-    if(command_pathname[0] == '\0') {
-        int ret = execute_built_in_command(argv);
-        restore_std(saved_stdin, saved_stdout);
-        return ret;
-    }
-    else {
-        // external command
-        pid_t pid = fork();
-        if (pid == -1) {
-            perror("fork");
-        }
-        else if (pid == 0) {
-            // child progress
-        if (execv(argv[0], argv) == -1) {
-                perror("execv");
-                exit(EXIT_FAILURE);
-            }
-        }
-        else {
-            // father progress
-            int status;
-            waitpid(pid, &status, 0);
-            if (!(WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS)) {
-                restore_std(saved_stdin, saved_stdout);
-                return EXIT_FAILURE;
-            }
-        }
-    }
-    restore_std(saved_stdin, saved_stdout);
-    return EXIT_SUCCESS;
+    // Execution should never reach here if execv() or execvp() is successful
+    return EXIT_FAILURE;
 }
 
 void expand_wildcards(char *arg, char **argv, int *argc) {
