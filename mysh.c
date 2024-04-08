@@ -2296,8 +2296,8 @@
 
 
 // WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH, WHICH, CONDITIONALS
-// WHAT NEEDS WORK: 
-// WHAT DOESN'T WORK: PIPING, REDIRECTING, PATH-TO-PROGRAM
+// WHAT NEEDS WORK: PATH-TO-PROGRAM
+// WHAT DOESN'T WORK: PIPING, REDIRECTING
 // OTHER ISSUES: PRESSING BLANK ENTER IN INTERACTIVE MODE => READ MEMORY ACCESS ERROR 
 
 
@@ -2487,55 +2487,55 @@ int run_shell(int input_fd) {
             args[num_args] = NULL;
         }
 
-        if (strstr(command, "|") != NULL) {
-            // Pipeline detected
-            int pipefd[2];
-            if (pipe(pipefd) == -1) {
-                perror("pipe");
-                return 1;
-            }
+        // if (strstr(command, "|") != NULL) {
+        //     // Pipeline detected
+        //     int pipefd[2];
+        //     if (pipe(pipefd) == -1) {
+        //         perror("pipe");
+        //         return 1;
+        //     }
 
-            // Fork a child process to execute the first command
-            pid_t pid1 = fork();
-            if (pid1 == 0) {
-                // Child process
-                close(pipefd[0]); // Close unused read end
-                dup2(in_fd, STDIN_FILENO); // Redirect stdin to the input file descriptor
-                dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to the write end of the pipe
-                close(pipefd[1]); // Close write end
-                exit_status = execute_command(args, in_fd, pipefd[1]);
-                close(pipefd[1]);
-                _exit(exit_status); // If execute_command returns, there's an error
-            } else if (pid1 < 0) {
-                // Fork failed
-                perror("fork");
-                return 1;
-            }
+        //     // Fork a child process to execute the first command
+        //     pid_t pid1 = fork();
+        //     if (pid1 == 0) {
+        //         // Child process
+        //         close(pipefd[0]); // Close unused read end
+        //         dup2(in_fd, STDIN_FILENO); // Redirect stdin to the input file descriptor
+        //         dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to the write end of the pipe
+        //         close(pipefd[1]); // Close write end
+        //         exit_status = execute_command(args, in_fd, pipefd[1]);
+        //         close(pipefd[1]);
+        //         _exit(exit_status); // If execute_command returns, there's an error
+        //     } else if (pid1 < 0) {
+        //         // Fork failed
+        //         perror("fork");
+        //         return 1;
+        //     }
 
-            // Fork another child process to execute the second command
-            pid_t pid2 = fork();
-            if (pid2 == 0) {
-                // Child process
-                close(pipefd[1]); // Close unused write end
-                dup2(pipefd[0], STDIN_FILENO); // Redirect stdin to the read end of the pipe
-                close(pipefd[0]); // Close read end
-                exit_status = execute_command(args, pipefd[0], out_fd);
-                close(pipefd[0]);
-                _exit(exit_status); // If execute_command returns, there's an error
-            } else if (pid2 < 0) {
-                // Fork failed
-                perror("fork");
-                return 1;
-            }
+        //     // Fork another child process to execute the second command
+        //     pid_t pid2 = fork();
+        //     if (pid2 == 0) {
+        //         // Child process
+        //         close(pipefd[1]); // Close unused write end
+        //         dup2(pipefd[0], STDIN_FILENO); // Redirect stdin to the read end of the pipe
+        //         close(pipefd[0]); // Close read end
+        //         exit_status = execute_command(args, pipefd[0], out_fd);
+        //         close(pipefd[0]);
+        //         _exit(exit_status); // If execute_command returns, there's an error
+        //     } else if (pid2 < 0) {
+        //         // Fork failed
+        //         perror("fork");
+        //         return 1;
+        //     }
 
-            // Close pipe ends in parent process
-            close(pipefd[0]);
-            close(pipefd[1]);
+        //     // Close pipe ends in parent process
+        //     close(pipefd[0]);
+        //     close(pipefd[1]);
 
-            // Wait for both child processes to finish
-            waitpid(pid1, NULL, 0);
-            waitpid(pid2, NULL, 0);
-        } 
+        //     // Wait for both child processes to finish
+        //     waitpid(pid1, NULL, 0);
+        //     waitpid(pid2, NULL, 0);
+        // } 
 
         if (strcmp(args[0], "cd") == 0) {
             if (num_args != 2) {
@@ -2558,12 +2558,6 @@ int run_shell(int input_fd) {
             }
             continue;
         } 
-
-
-
-
-
-
 
         else if (strcmp(args[0], "which") == 0) {
             if (num_args != 2) {
@@ -2619,10 +2613,11 @@ int run_shell(int input_fd) {
             break;
         } 
         
-        else {
-            // Single command
-            exit_status = execute_command(args, in_fd, out_fd);
-        }
+        // Handle wildcard expansion
+        num_args = handle_wildcard(args);
+
+        // Single command
+        exit_status = execute_command(args, in_fd, out_fd);
 
         // Update previous status if the command was executed
         if (strcmp(args[0], "then") != 0 && strcmp(args[0], "else") != 0) {
@@ -2635,6 +2630,197 @@ int run_shell(int input_fd) {
 
 
 
+
+// // main loop for both batch and interactive
+// int run_shell(int input_fd) {
+//     char command[MAX_COMMAND_LENGTH];
+//     char *args[MAX_ARGS];
+//     char *paths[] = PATHS;
+//     int num_paths = NUM_PATHS;
+//     int num_args;
+//     int exit_status = 0;
+
+//     while (1) {
+//         if (isatty(input_fd)) {
+//             print_prompt();
+//         }
+
+//         // reading input 
+//         ssize_t bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH);
+//         if (bytes_read <= 0) {
+//             // End of input stream
+//             break;
+//         }
+//         // Null terminate the string
+//         command[bytes_read] = '\0';
+
+//         // Parse command into arguments
+//         num_args = 0;
+//         char *token = strtok(command, " \n");
+//         while (token != NULL) {
+//             args[num_args++] = token;
+//             token = strtok(NULL, " \n");
+//         }
+//         args[num_args] = NULL;
+
+//         if (strcmp(args[0], "cd") == 0) {
+//             if (num_args != 2) {
+//                 write(STDERR_FILENO, "cd: Invalid number of arguments\n", 32);
+//                 continue;
+//             }
+//             if (chdir(args[1]) != 0) {
+//                 perror("chdir");
+//             }
+//             continue;
+//         } else if (strcmp(args[0], "pwd") == 0) {
+//             char cwd[1024];
+//             if (getcwd(cwd, sizeof(cwd)) != NULL) {
+//                 write(STDOUT_FILENO, cwd, strlen(cwd));
+//                 write(STDOUT_FILENO, "\n", 1);
+//             } else {
+//                 perror("getcwd");
+//             }
+//             continue;
+//         } 
+
+//         else if (strcmp(args[0], "which") == 0) {
+//             if (num_args != 2) {
+//                 write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
+//                 continue;
+//             }
+
+//             if (strcmp(args[1], "which") == 0 || strcmp(args[1], "pwd") == 0 ||
+//                 strcmp(args[1], "cd") == 0 || strcmp(args[1], "exit") == 0) {
+//                         continue;
+//                     }
+
+//             // Maximum length of the command path
+//             char cmd_path[MAX_COMMAND_LENGTH];
+
+//             // Loop through each directory and check if the program exists
+//             int found = 0;
+//             for (int i = 0; i < num_paths; i++) {
+//                 int dir_length = strlen(paths[i]);
+//                 int cmd_length = strlen(args[1]);
+//                 if (dir_length + cmd_length + 2 > MAX_COMMAND_LENGTH) {
+//                     // Path length exceeds maximum length
+//                     write(STDERR_FILENO, "which: Path length exceeds maximum\n", 36);
+//                     continue;
+//                 }
+//                 // Construct the path
+//                 strcpy(cmd_path, paths[i]);
+//                 //strcat(cmd_path, "/");
+//                 strcat(cmd_path, args[1]);
+//                 if (access(cmd_path, X_OK) == 0) {
+//                     // Print the path and exit the loop
+//                     write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
+//                     write(STDOUT_FILENO, "\n", 1);
+//                     found = 1;
+//                     break;
+//                 }
+//             }
+
+//             // If the program is not found in any directory, print an error message
+//             if (!found) {
+//                 write(STDERR_FILENO, "which: Program not found\n", 26);
+//             }
+
+//             continue;
+//         }
+        
+//         else if (strcmp(args[0], "exit") == 0) {
+//             if (num_args > 1) {
+//                 write(STDOUT_FILENO, "Exiting with status: ", 22);
+//                 write(STDOUT_FILENO, args[1], strlen(args[1]));
+//                 write(STDOUT_FILENO, "\n", 1);
+//                 exit_status = atoi(args[1]);
+//             }
+//             break;
+//         } 
+
+//         // else if (strstr(command, "|") != NULL) {
+//         //     // Pipe detected
+//         //     char *cmd1[MAX_ARGS];
+//         //     char *cmd2[MAX_ARGS];
+//         //     int pipe_pos = -1;
+
+//         //     // Find the position of the pipe
+//         //     for (int i = 0; i < num_args; i++) {
+//         //         if (strcmp(args[i], "|") == 0) {
+//         //             pipe_pos = i;
+//         //             break;
+//         //         }
+//         //     }
+
+//         //     // Split the command into two parts
+//         //     for (int i = 0; i < num_args; i++) {
+//         //         if (i < pipe_pos) {
+//         //             cmd1[i] = args[i];
+//         //         } else if (i > pipe_pos) {
+//         //             cmd2[i - pipe_pos - 1] = args[i];
+//         //         }
+//         //     }
+//         //     cmd1[pipe_pos] = NULL;
+//         //     cmd2[num_args - pipe_pos - 1] = NULL;
+
+//         //     // Create pipe
+//         //     int pipefd[2];
+//         //     if (pipe(pipefd) == -1) {
+//         //         perror("pipe");
+//         //         return 1;
+//         //     }
+
+//         //     // Fork a child process to execute the first command
+//         //     pid_t pid1 = fork();
+//         //     if (pid1 == 0) {
+//         //         // Child process
+//         //         close(pipefd[0]); // Close unused read end
+//         //         dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to the write end of the pipe
+//         //         close(pipefd[1]); // Close write end
+//         //         execute_command(cmd1, STDIN_FILENO, STDOUT_FILENO);
+//         //         _exit(EXIT_FAILURE); // If execute_command returns, there's an error
+//         //     } else if (pid1 < 0) {
+//         //         // Fork failed
+//         //         perror("fork");
+//         //         return 1;
+//         //     }
+
+//         //     // Fork another child process to execute the second command
+//         //     pid_t pid2 = fork();
+//         //     if (pid2 == 0) {
+//         //         // Child process
+//         //         close(pipefd[1]); // Close unused write end
+//         //         dup2(pipefd[0], STDIN_FILENO); // Redirect stdin to the read end of the pipe
+//         //         close(pipefd[0]); // Close read end
+//         //         execute_command(cmd2, STDIN_FILENO, STDOUT_FILENO);
+//         //         _exit(EXIT_FAILURE); // If execute_command returns, there's an error
+//         //     } else if (pid2 < 0) {
+//         //         // Fork failed
+//         //         perror("fork");
+//         //         return 1;
+//         //     }
+
+//         //     // Close pipe ends in parent process
+//         //     close(pipefd[0]);
+//         //     close(pipefd[1]);
+
+//         //     // Wait for both child processes to finish
+//         //     waitpid(pid1, NULL, 0);
+//         //     waitpid(pid2, NULL, 0);
+
+//         //     continue;
+//         // }
+
+
+//         // Handle wildcard expansion
+//         num_args = handle_wildcard(args);
+
+//         // Execute command
+//         exit_status = execute_command(args, STDIN_FILENO, STDOUT_FILENO);
+//     }
+
+//     return exit_status;
+// }
 
 
 
@@ -2797,234 +2983,3 @@ int main(int argc, char *argv[]) {
 
 
 // OLD RUN SHELL
-
-// // main loop for both batch and interactive
-// int run_shell(int input_fd) {
-//     char command[MAX_COMMAND_LENGTH];
-//     char *args[MAX_ARGS];
-//     char *paths[] = PATHS;
-//     int num_paths = NUM_PATHS;
-//     int num_args;
-//     int exit_status = 0;
-
-//     while (1) {
-//         if (isatty(input_fd)) {
-//             print_prompt();
-//         }
-
-//         // reading input 
-//         ssize_t bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH);
-//         if (bytes_read <= 0) {
-//             // End of input stream
-//             break;
-//         }
-//         // Null terminate the string
-//         command[bytes_read] = '\0';
-
-//         // Parse command into arguments
-//         num_args = 0;
-//         char *token = strtok(command, " \n");
-//         while (token != NULL) {
-//             args[num_args++] = token;
-//             token = strtok(NULL, " \n");
-//         }
-//         args[num_args] = NULL;
-
-//         if (strcmp(args[0], "cd") == 0) {
-//             if (num_args != 2) {
-//                 write(STDERR_FILENO, "cd: Invalid number of arguments\n", 32);
-//                 continue;
-//             }
-//             if (chdir(args[1]) != 0) {
-//                 perror("chdir");
-//             }
-//             continue;
-//         } else if (strcmp(args[0], "pwd") == 0) {
-//             char cwd[1024];
-//             if (getcwd(cwd, sizeof(cwd)) != NULL) {
-//                 write(STDOUT_FILENO, cwd, strlen(cwd));
-//                 write(STDOUT_FILENO, "\n", 1);
-//             } else {
-//                 perror("getcwd");
-//             }
-//             continue;
-//         } 
-
-
-
-
-
-
-
-//         else if (strcmp(args[0], "which") == 0) {
-//             if (num_args != 2) {
-//                 write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
-//                 continue;
-//             }
-
-//             if (strcmp(args[1], "which") == 0 || strcmp(args[1], "pwd") == 0 ||
-//                 strcmp(args[1], "cd") == 0 || strcmp(args[1], "exit") == 0) {
-//                         continue;
-//                     }
-
-//             // Maximum length of the command path
-//             char cmd_path[MAX_COMMAND_LENGTH];
-
-//             // Loop through each directory and check if the program exists
-//             int found = 0;
-//             for (int i = 0; i < num_paths; i++) {
-//                 int dir_length = strlen(paths[i]);
-//                 int cmd_length = strlen(args[1]);
-//                 if (dir_length + cmd_length + 2 > MAX_COMMAND_LENGTH) {
-//                     // Path length exceeds maximum length
-//                     write(STDERR_FILENO, "which: Path length exceeds maximum\n", 36);
-//                     continue;
-//                 }
-//                 // Construct the path
-//                 strcpy(cmd_path, paths[i]);
-//                 //strcat(cmd_path, "/");
-//                 strcat(cmd_path, args[1]);
-//                 if (access(cmd_path, X_OK) == 0) {
-//                     // Print the path and exit the loop
-//                     write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
-//                     write(STDOUT_FILENO, "\n", 1);
-//                     found = 1;
-//                     break;
-//                 }
-//             }
-
-//             // If the program is not found in any directory, print an error message
-//             if (!found) {
-//                 write(STDERR_FILENO, "which: Program not found\n", 26);
-//             }
-
-//             continue;
-//         }
-
-
-
-
-
-
-
-
-
-
-        
-//         // else if (strcmp(args[0], "which") == 0) {
-//         //     if (num_args != 2) {
-//         //         write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
-//         //         continue;
-//         //     }
-//         //     char *path = getenv("PATH");
-//         //     if (path != NULL) {
-//         //         char *token = strtok(path, ":");
-//         //         while (token != NULL) {
-//         //             char cmd_path[1024];
-//         //             snprintf(cmd_path, sizeof(cmd_path), "%s/%s", token, args[1]);
-//         //             if (access(cmd_path, X_OK) == 0) {
-//         //                 write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
-//         //                 write(STDOUT_FILENO, "\n", 1);
-//         //                 break;
-//         //             }
-//         //             token = strtok(NULL, ":");
-//         //         }
-//         //     } else {
-//         //         write(STDERR_FILENO, "which: PATH environment variable not set\n", 42);
-//         //     }
-//         //     continue;
-//         // } 
-        
-//         else if (strcmp(args[0], "exit") == 0) {
-//             if (num_args > 1) {
-//                 write(STDOUT_FILENO, "Exiting with status: ", 22);
-//                 write(STDOUT_FILENO, args[1], strlen(args[1]));
-//                 write(STDOUT_FILENO, "\n", 1);
-//                 exit_status = atoi(args[1]);
-//             }
-//             break;
-//         } 
-
-//         // else if (strstr(command, "|") != NULL) {
-//         //     // Pipe detected
-//         //     char *cmd1[MAX_ARGS];
-//         //     char *cmd2[MAX_ARGS];
-//         //     int pipe_pos = -1;
-
-//         //     // Find the position of the pipe
-//         //     for (int i = 0; i < num_args; i++) {
-//         //         if (strcmp(args[i], "|") == 0) {
-//         //             pipe_pos = i;
-//         //             break;
-//         //         }
-//         //     }
-
-//         //     // Split the command into two parts
-//         //     for (int i = 0; i < num_args; i++) {
-//         //         if (i < pipe_pos) {
-//         //             cmd1[i] = args[i];
-//         //         } else if (i > pipe_pos) {
-//         //             cmd2[i - pipe_pos - 1] = args[i];
-//         //         }
-//         //     }
-//         //     cmd1[pipe_pos] = NULL;
-//         //     cmd2[num_args - pipe_pos - 1] = NULL;
-
-//         //     // Create pipe
-//         //     int pipefd[2];
-//         //     if (pipe(pipefd) == -1) {
-//         //         perror("pipe");
-//         //         return 1;
-//         //     }
-
-//         //     // Fork a child process to execute the first command
-//         //     pid_t pid1 = fork();
-//         //     if (pid1 == 0) {
-//         //         // Child process
-//         //         close(pipefd[0]); // Close unused read end
-//         //         dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to the write end of the pipe
-//         //         close(pipefd[1]); // Close write end
-//         //         execute_command(cmd1, STDIN_FILENO, STDOUT_FILENO);
-//         //         _exit(EXIT_FAILURE); // If execute_command returns, there's an error
-//         //     } else if (pid1 < 0) {
-//         //         // Fork failed
-//         //         perror("fork");
-//         //         return 1;
-//         //     }
-
-//         //     // Fork another child process to execute the second command
-//         //     pid_t pid2 = fork();
-//         //     if (pid2 == 0) {
-//         //         // Child process
-//         //         close(pipefd[1]); // Close unused write end
-//         //         dup2(pipefd[0], STDIN_FILENO); // Redirect stdin to the read end of the pipe
-//         //         close(pipefd[0]); // Close read end
-//         //         execute_command(cmd2, STDIN_FILENO, STDOUT_FILENO);
-//         //         _exit(EXIT_FAILURE); // If execute_command returns, there's an error
-//         //     } else if (pid2 < 0) {
-//         //         // Fork failed
-//         //         perror("fork");
-//         //         return 1;
-//         //     }
-
-//         //     // Close pipe ends in parent process
-//         //     close(pipefd[0]);
-//         //     close(pipefd[1]);
-
-//         //     // Wait for both child processes to finish
-//         //     waitpid(pid1, NULL, 0);
-//         //     waitpid(pid2, NULL, 0);
-
-//         //     continue;
-//         // }
-
-
-//         // Handle wildcard expansion
-//         num_args = handle_wildcard(args);
-
-//         // Execute command
-//         exit_status = execute_command(args, STDIN_FILENO, STDOUT_FILENO);
-//     }
-
-//     return exit_status;
-// }
