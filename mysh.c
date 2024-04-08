@@ -2295,8 +2295,8 @@
 
 
 
-// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH, WHICH, CONDITIONALS
-// WHAT NEEDS WORK: PATH-TO-PROGRAM
+// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH, WHICH, CONDITIONALS, PATH-TO-PROGRAM
+// WHAT NEEDS WORK: 
 // WHAT DOESN'T WORK: PIPING, REDIRECTING
 // OTHER ISSUES: PRESSING BLANK ENTER IN INTERACTIVE MODE => READ MEMORY ACCESS ERROR 
 
@@ -2326,6 +2326,39 @@ int execute_command(char **args, int input_fd, int output_fd) {
     pid_t pid;
     int status;
     char *paths[] = PATHS;
+
+    if (strchr(args[0], '/') != NULL) {
+        // If the first argument contains a slash character, assume it's a path to an executable file
+        pid = fork();
+        if (pid == 0) {
+            // Child process
+            if (input_fd != STDIN_FILENO) {
+                dup2(input_fd, STDIN_FILENO);
+                close(input_fd);
+            }
+            if (output_fd != STDOUT_FILENO) {
+                dup2(output_fd, STDOUT_FILENO);
+                close(output_fd);
+            }
+            execv(args[0], args);
+            // If execv returns, it means an error occurred
+            perror("execv");
+            exit(EXIT_FAILURE);
+        } else if (pid < 0) {
+            // Fork failed
+            perror("fork");
+            return 1;
+        } else {
+            // Parent process
+            waitpid(pid, &status, 0);
+            if (WIFEXITED(status)) {
+                int exit_status = WEXITSTATUS(status);
+                if (exit_status == 0) {
+                    return exit_status;
+                }
+            }
+        }
+    } else {
     
     for (int i = 0; i < NUM_PATHS; i++) {
         pid = fork();
@@ -2362,6 +2395,7 @@ int execute_command(char **args, int input_fd, int output_fd) {
                 }
             }
         }
+    }
     }
     // If none of the paths were successful
     printf("Command not found: %s\n", args[0]);
@@ -2439,6 +2473,85 @@ int run_shell(int input_fd) {
             token = strtok(NULL, " \n");
         }
         args[num_args] = NULL;
+
+
+
+
+
+
+
+
+        int input_redirect = 0, output_redirect = 0;
+        int input_fd = STDIN_FILENO, output_fd = STDOUT_FILENO;
+        for (int i = 0; i < num_args; i++) {
+            if (strcmp(args[i], "<") == 0) {
+                input_redirect = i;
+                input_fd = open(args[i + 1], O_RDONLY);
+                if (input_fd < 0) {
+                    perror("open");
+                    return 1;
+                }
+                args[i] = NULL;
+            } else if (strcmp(args[i], ">") == 0) {
+                output_redirect = i;
+                output_fd = open(args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0640);
+                if (output_fd < 0) {
+                    perror("open");
+                    return 1;
+                }
+                args[i] = NULL;
+            }
+        }
+
+        // Execute command with redirection
+        if (input_redirect || output_redirect) {
+            exit_status = execute_command(args, input_fd, output_fd);
+            if (input_fd != STDIN_FILENO) {
+                close(input_fd);
+            }
+            if (output_fd != STDOUT_FILENO) {
+                close(output_fd);
+            }
+        } 
+
+        // int pipe_pos = -1;
+        // for (int i = 0; i < num_args; i++) {
+        //     if (strcmp(args[i], "|") == 0) {
+        //         pipe_pos = i;
+        //         break;
+        //     }
+        // }
+
+        // if (pipe_pos != -1) {
+        //     // Piping detected
+        //     int pipefd[2];
+        //     if (pipe(pipefd) == -1) {
+        //         perror("pipe");
+        //         return 1;
+        //     }
+
+        //     // Execute left command
+        //     args[pipe_pos] = NULL;
+        //     int left_status = execute_command(args, input_fd, pipefd[1]);
+        //     close(pipefd[1]); // Close write end of pipe
+
+        //     // Execute right command
+        //     args[pipe_pos] = NULL; // Terminate left command arguments
+        //     int right_args_offset = pipe_pos + 1;
+        //     int right_status = execute_command(args + right_args_offset, pipefd[0], STDOUT_FILENO);
+        //     close(pipefd[0]); // Close read end of pipe
+
+        //     // Update exit status based on right command's status
+        //     exit_status = right_status;
+        // }
+
+
+
+
+
+
+
+
 
         if (strcmp(args[0], "then") == 0 || strcmp(args[0], "else") == 0) {
             // Conditional command

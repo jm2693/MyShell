@@ -1,0 +1,14 @@
+total 408
+-rw-r--r--  1 jason_m1210  admin    182 Apr  6 01:13 Makefile
+-rw-r--r--  1 jason_m1210  admin   1261 Apr  7 23:35 README
+-rwxr-xr-x  1 jason_m1210  admin  33640 Apr  7 23:35 consumer
+-rw-r--r--  1 jason_m1210  admin    192 Apr  7 23:35 consumer.c
+-rwxr-xr-x  1 jason_m1210  admin     22 Apr  8 00:22 hello.sh
+-rwxr-xr-x  1 jason_m1210  admin  56568 Apr  8 02:10 mysh
+-rw-r--r--  1 jason_m1210  admin  88687 Apr  8 02:10 mysh.c
+-rwxr-xr-x  1 jason_m1210  admin      0 Apr  8 02:02 producer
+-rw-r--r--  1 jason_m1210  admin      0 Apr  8 02:02 producer.c
+-rw-r-----  1 jason_m1210  admin      0 Apr  8 02:12 test.txt
+-rw-r--r--  1 jason_m1210  admin     49 Apr  7 23:35 test1.sh
+-rw-r--r--  1 jason_m1210  admin      9 Apr  7 23:35 testbuiltin.sh
+drwxr-xr-x  3 jason_m1210  admin     96 Apr  7 23:35 testsubdir
