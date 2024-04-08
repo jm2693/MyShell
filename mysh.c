@@ -147,9 +147,9 @@ int main(int argc, char *argv[]) {
 
         char *args_command [MAX_ARGS];
         char *args_redirect[MAX_ARGS];
-        int args_inc1;
+        int args_inc1 = 0;
 
-        if(strchr(*args, ">") != NULL || strchr(*args, "<") || strchr(*args, "|")){
+        if(strchr(*args, '>') != NULL || strchr(*args, '<') || strchr(*args, '|')){
             //redirection detected
             for(int i = 0; i < num_args; i++){
                 if(strcmp(args[i], ">") == 0 || strcmp(args[i], "<") || strcmp(args[i], "|")){
