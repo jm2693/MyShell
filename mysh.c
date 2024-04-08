@@ -1,189 +1,247 @@
-#include <stdlib.h>
+// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH
+// WHAT NEEDS WORK: 
+// WHAT DOESN'T WORK: PIPING, REDIRECTING
+
+
+
 #include <stdio.h>
-#include <stddef.h>
-#include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <string.h>
 #include <fcntl.h>
-#include <sys/time.h>
+#include <errno.h>
+#include <glob.h>
 
-#define DELIM " \n"
-#define LINE_BUF 512
-#define TOKEN_BUF 64
+#define PATHS { "/usr/local/bin/", "/usr/bin/", "/bin/" }
+#define MAX_COMMAND_LENGTH 1024
+#define MAX_ARGS 64
+#define NUM_PATHS 3
 
-char* parse_command(int input_fd);
-char** tokenize(char* line);
+void print_prompt() {
+    write(STDOUT_FILENO, "mysh> ", 6);
+}
 
-char **tokenize(char* line) {
-    int bufSize = TOKEN_BUF;
-    int pos = 0;
-    char **tokens = (char**)malloc(bufSize * sizeof(char*));
-    char *token;
-    char *delim = DELIM;
-
-    if (!tokens) {
-        printf("lsh: allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-
-    while (*line) {
-        // check if the current character is a delimiter
-        if (strchr(delim, *line) != NULL) {
-            // replace the delimiter with a null terminator to end the current token
-            *line = '\0';
-            // if token is not NULL (i.e., there is content), add it to tokens array
-            if (token != NULL) {
-                // allocate memory for the token
-                tokens[pos] = token;
-                pos++;
-                // check if we need to reallocate memory for tokens array
-                if (pos >= bufSize) {
-                    bufSize += TOKEN_BUF;
-                    tokens = realloc(tokens, bufSize * sizeof(char*));
-                    if (!tokens) {
-                        printf("mysh: allocation error\n");
-                        exit(EXIT_FAILURE);
-                    }
-                }
-                // reset token pointer to NULL for the next token
-                token = NULL;
+// doesn't use access
+int execute_command(char **args, int input_fd, int output_fd) {
+    pid_t pid;
+    int status;
+    char *paths[] = PATHS;
+    
+    for (int i = 0; i < NUM_PATHS; i++) {
+        pid = fork();
+        if (pid == 0) {
+            // Child process
+            if (input_fd != STDIN_FILENO) {
+                dup2(input_fd, STDIN_FILENO);
+                close(input_fd);
             }
+            if (output_fd != STDOUT_FILENO) {
+                dup2(output_fd, STDOUT_FILENO);
+                close(output_fd);
+            }
+            // Construct the full path to the command
+            char *full_path = malloc(strlen(paths[i]) + strlen(args[0]) + 1);
+            strcpy(full_path, paths[i]);
+            strcat(full_path, args[0]);
+            //if (access(full_path, X_OK)) hmmmmm
+            execv(full_path, args);
+            // If execv returns, it means an error occurred
+            free(full_path);
+            _exit(EXIT_FAILURE);
+        } else if (pid < 0) {
+            // Fork failed
+            perror("fork");
+            return 1;
         } else {
-            // if the character is not a delimiter, check if token is NULL
-            // if token is NULL, it means we have encountered the start of a new token
-            if (token == NULL) {
-                // set the token pointer to the current position in the line
-                token = line;
+            // Parent process
+            waitpid(pid, &status, 0);
+            if (WIFEXITED(status)) {
+                int exit_status = WEXITSTATUS(status);
+                if (exit_status == 0) {
+                    return exit_status;
+                }
             }
         }
-        // move to the next character in the line
-        line++;
     }
-    // add the last token to tokens array if it exists
-    if (token != NULL) {
-        tokens[pos] = token;
-        pos++;
-    }
-    // add NULL as the last element to indicate the end of tokens array
-    tokens[pos] = NULL;
-    return tokens;
+    // If none of the paths were successful
+    printf("Command not found: %s\n", args[0]);
+    return 1;
 }
 
+// Function to handle wildcard expansion
+int handle_wildcard(char **args) {
+    int i, j, num_args = 0;
+    glob_t glob_result;
+    int flags = 0; // GLOB_NOCHECK to return pattern itself if no matches found
 
-// function used to parse through input lines (either file or standard input)
-char *parse_command(int input_fd) {
-    int bufSize = LINE_BUF;      // buffer size for command length
-    int pos = 0;                 // position of bufSize
-    char *buffer = (char*)malloc(sizeof(char) * bufSize);   // malloc buffer for command
-
-    if(!buffer){
-        printf("mysh: allocation error \n"); 
-        exit(EXIT_FAILURE);
+    // Count the number of arguments
+    while (args[num_args] != NULL) {
+        num_args++;
     }
 
-    // parses through input lines (standard input or file)
-    while(1) {
-        ssize_t bytes_read = read(input_fd, &buffer[pos], 1);  
-        if (bytes_read < 0) {
-            printf("Error reading command\n");
+    for (i = 0; i < num_args; i++) {
+        if (strchr(args[i], '*') != NULL) {
+            if (glob(args[i], flags, NULL, &glob_result) == 0) {
+                // Replace the wildcard argument with the expanded filenames
+                for (j = 0; j < glob_result.gl_pathc; j++) {
+                    args[i + j] = strdup(glob_result.gl_pathv[j]);
+                }
+                // Shift the remaining arguments to accommodate the expansion
+                for (j = num_args - 1; j >= i + 1; j--) {
+                    args[j + glob_result.gl_pathc - 1] = args[j];
+                }
+                // Update the number of arguments
+                num_args += glob_result.gl_pathc - 1;
+                args[num_args] = NULL; // Null-terminate the argument list
+                globfree(&glob_result);
+            }
+        }
+    }
+
+    return num_args;
+}
+
+int main(int argc, char *argv[]) {
+    char command[MAX_COMMAND_LENGTH];
+    char *args[MAX_ARGS];
+    int num_args;
+    int exit_status = 0;
+
+    int input_fd = STDIN_FILENO;
+    if (argc > 1) {
+        input_fd = open(argv[1], O_RDONLY);
+        if (input_fd == -1) {
+            perror("open");
             exit(EXIT_FAILURE);
-        } 
-        else if (isatty(input_fd)) {      // if in interactive mode
-            if (bytes_read == 0) {
-                printf("End of input. Exiting shell program.\n");
-                buffer[pos] = '\0';
-                return buffer;
-            } else buffer[pos] = bytes_read;
-            // break; why did i break?
-        } 
-        else if (!(isatty(input_fd))) {   // if in bash mode
-            if (bytes_read == 0 || buffer[pos] == '\n') {
-                buffer[pos] = '\0';
-                return buffer;
-            } else buffer[pos] = bytes_read;
-        }
-        pos++;
-
-        // add size of buffer if runs out of memory
-        if (pos >= bufSize){
-            bufSize += LINE_BUF;
-            buffer = realloc(buffer, bufSize);
-            if(!buffer){
-                printf("mysh: allocation error \n"); 
-                exit(EXIT_FAILURE);
-            }
         }
     }
-}
 
-// shell loop that will constantly check for input and parse arguments
-void run_shell_loop (int input_fd) { 
-    char *command;
-    char **args;
-    int is_interactive = isatty(STDIN_FILENO);      // is from terminal?
+    if (isatty(input_fd)) {
+        write(STDOUT_FILENO, "Welcome to my shell!\n", 21);
+    }
 
-    printf("step 1");
     while (1) {
-        printf("step 2");
-        
-
-        if (is_interactive) {
-            printf("mysh> ");
+        if (isatty(input_fd)) {
+            print_prompt();
         }
 
-        // reads line of input
-        command = parse_command(input_fd);
+        // Read input using read() instead of fgets()
+        ssize_t bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH);
+        if (bytes_read <= 0) {
+            // End of input stream
+            break;
+        }
+        // Null terminate the string
+        command[bytes_read] = '\0';
 
-        // tokenizes line of input
-        args = tokenize(command);
+        // Parse command into arguments
+        num_args = 0;
+        char *token = strtok(command, " \n");
+        while (token != NULL) {
+            args[num_args++] = token;
+            token = strtok(NULL, " \n");
+        }
+        args[num_args] = NULL;
 
-        //wildcard *
-        if(strchr("*", args) != NULL){
-            
+        char *args_command [MAX_ARGS];
+        char *args_redirect[MAX_ARGS];
+        int args_inc1 = 0;
+
+        if(strchr(*args, '>') != NULL || strchr(*args, '<') || strchr(*args, '|')){
+            //redirection detected
+            for(int i = 0; i < num_args; i++){
+                if(strcmp(args[i], ">") == 0 || strcmp(args[i], "<") || strcmp(args[i], "|")){
+                    args_redirect[args_inc1] = args[i];
+                    args_command[args_inc1] = " ";
+                    args_inc1++;
+                }
+                else{
+                    args_command[args_inc1] = args[i];
+                    args_redirect[args_inc1] = " "; 
+                    args_inc1++;  
+                }
+            }
+
+            for(int i = 0; i < args_inc1; i++){
+                if(strcmp(args_redirect[i], "<") == 0 || strcmp(args_redirect[i], "|") == 0){
+                    int input = open(args_command[i--], O_RDONLY);
+                    int output = open(args_command[i++], O_WRONLY, 0640);
+                    execute_command(args, input, output); 
+                }
+                else if(strcmp(args_redirect[i], ">") == 0){
+                    int input = open(args_command[i++], O_RDONLY);
+                    int output = open(args_command[i--], O_WRONLY, 0640);
+                    execute_command(args, input, output); 
+                }
+            }
+
+        }
+        if (strcmp(args[0], "cd") == 0) {
+            if (num_args != 2) {
+                write(STDERR_FILENO, "cd: Invalid number of arguments\n", 32);
+                continue;
+            }
+            if (chdir(args[1]) != 0) {
+                perror("chdir");
+            }
+            continue;
+        } else if (strcmp(args[0], "pwd") == 0) {
+            char cwd[1024];
+            if (getcwd(cwd, sizeof(cwd)) != NULL) {
+                write(STDOUT_FILENO, cwd, strlen(cwd));
+                write(STDOUT_FILENO, "\n", 1);
+            } else {
+                perror("getcwd");
+            }
+            continue;
+        } else if (strcmp(args[0], "which") == 0) {
+            if (num_args != 2) {
+                write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
+                continue;
+            }
+            char *path = getenv("PATH");
+            if (path != NULL) {
+                char *token = strtok(path, ":");
+                while (token != NULL) {
+                    char cmd_path[1024];
+                    snprintf(cmd_path, sizeof(cmd_path), "%s/%s", token, args[1]);
+                    if (access(cmd_path, X_OK) == 0) {
+                        write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
+                        write(STDOUT_FILENO, "\n", 1);
+                        break;
+                    }
+                    token = strtok(NULL, ":");
+                }
+            } else {
+                write(STDERR_FILENO, "which: PATH environment variable not set\n", 42);
+            }
+            continue;
+        } else if (strcmp(args[0], "exit") == 0) {
+            if (num_args > 1) {
+                write(STDOUT_FILENO, "Exiting with status: ", 22);
+                write(STDOUT_FILENO, args[1], strlen(args[1]));
+                write(STDOUT_FILENO, "\n", 1);
+                exit_status = atoi(args[1]);
+            }
+            break;
         }
 
+        // Handle wildcard expansion
+        num_args = handle_wildcard(args);
 
-
-        //exit code part 
-        if(strchr("exit", args) != NULL){
-            exit(EXIT_SUCCESS); 
-        }
-
-        // missing execution
-        free(command);
-        free(args);
-
-    } 
-
-    if (is_interactive) {
-        printf("Goodbye!");
+        // Execute command
+        exit_status = execute_command(args, STDIN_FILENO, STDOUT_FILENO);
     }
 
-}
-
-int main(int argc, char const *argv[])
-{
-    // file descriptor for input
-    int input_fd;
-
-    // this program takes in at most 2 arguments including the program name. any more results in error
-    if (argc > 2) {
-        printf("The program, %s, takes in either 0 or 1 argument(s)\n", argv[0]);
-        return 1;
+    if (isatty(input_fd)) {
+        write(STDOUT_FILENO, "Exiting my shell.\n", 18);
     }
 
-    // used to determine whether the program will run in interactive or bash mode
-    if (isatty(STDIN_FILENO)) 
-        input_fd = STDIN_FILENO;
-    else input_fd = open(argv[1], O_RDONLY);
-
-    // check for fd error
-    if (input_fd < 0) {
-        perror("Error reading from input");
-        return EXIT_FAILURE;
+    if (argc > 1) {
+        close(input_fd);
     }
 
-    // one major loop that runs the shell in both modes
-    run_shell_loop(input_fd);
-
-    return EXIT_SUCCESS;
+    return exit_status;
 }
