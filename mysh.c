@@ -1,9 +1,3 @@
-// WHAT WORKS: CD, PWD, EXIT, INTERACTIVE, WILDCARDS, BARENAMES, BATCH
-// WHAT NEEDS WORK: 
-// WHAT DOESN'T WORK: PIPING, REDIRECTING
-
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -145,94 +139,84 @@ int main(int argc, char *argv[]) {
         }
         args[num_args] = NULL;
 
-        char *args_command [MAX_ARGS];
-        char *args_redirect[MAX_ARGS];
-        int args_inc1 = 0;
-
-        if(strchr(*args, '>') != NULL || strchr(*args, '<') || strchr(*args, '|')){
-            //redirection detected
-            for(int i = 0; i < num_args; i++){
-                if(strcmp(args[i], ">") == 0 || strcmp(args[i], "<") || strcmp(args[i], "|")){
-                    args_redirect[args_inc1] = args[i];
-                    args_command[args_inc1] = " ";
-                    args_inc1++;
-                }
-                else{
-                    args_command[args_inc1] = args[i];
-                    args_redirect[args_inc1] = " "; 
-                    args_inc1++;  
-                }
+        // Check for redirection and piping
+        int redirect_index = -1;
+        int pipe_index = -1;
+        for (int i = 0; i < num_args; i++) {
+            if (strcmp(args[i], "<") == 0 || strcmp(args[i], ">") == 0) {
+                redirect_index = i;
+                break;
+            } else if (strcmp(args[i], "|") == 0) {
+                pipe_index = i;
+                break;
             }
-
-            for(int i = 0; i < args_inc1; i++){
-                if(strcmp(args_redirect[i], "<") == 0 || strcmp(args_redirect[i], "|") == 0){
-                    int input = open(args_command[i--], O_RDONLY);
-                    int output = open(args_command[i++], O_WRONLY, 0640);
-                    execute_command(args, input, output); 
-                }
-                else if(strcmp(args_redirect[i], ">") == 0){
-                    int input = open(args_command[i++], O_RDONLY);
-                    int output = open(args_command[i--], O_WRONLY, 0640);
-                    execute_command(args, input, output); 
-                }
-            }
-
         }
-        if (strcmp(args[0], "cd") == 0) {
-            if (num_args != 2) {
-                write(STDERR_FILENO, "cd: Invalid number of arguments\n", 32);
-                continue;
-            }
-            if (chdir(args[1]) != 0) {
-                perror("chdir");
-            }
-            continue;
-        } else if (strcmp(args[0], "pwd") == 0) {
-            char cwd[1024];
-            if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                write(STDOUT_FILENO, cwd, strlen(cwd));
-                write(STDOUT_FILENO, "\n", 1);
-            } else {
-                perror("getcwd");
-            }
-            continue;
-        } else if (strcmp(args[0], "which") == 0) {
-            if (num_args != 2) {
-                write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
-                continue;
-            }
-            char *path = getenv("PATH");
-            if (path != NULL) {
-                char *token = strtok(path, ":");
-                while (token != NULL) {
-                    char cmd_path[1024];
-                    snprintf(cmd_path, sizeof(cmd_path), "%s/%s", token, args[1]);
-                    if (access(cmd_path, X_OK) == 0) {
-                        write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
-                        write(STDOUT_FILENO, "\n", 1);
-                        break;
+
+        if (redirect_index != -1 || pipe_index != -1) {
+            // Handle redirection or piping
+            int input = STDIN_FILENO;
+            int output = STDOUT_FILENO;
+
+            if (redirect_index != -1) {
+                // Redirect input/output
+                if (redirect_index + 1 < num_args) {
+                    // Set input file descriptor
+                    input = open(args[redirect_index + 1], O_RDONLY);
+                    if (input == -1) {
+                        perror("open");
+                        continue;
                     }
-                    token = strtok(NULL, ":");
                 }
-            } else {
-                write(STDERR_FILENO, "which: PATH environment variable not set\n", 42);
+                if (redirect_index - 1 >= 0) {
+                    // Set output file descriptor
+                    output = open(args[redirect_index - 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (output == -1) {
+                        perror("open");
+                        continue;
+                    }
+                }
+            } else if (pipe_index != -1) {
+                // Create pipe
+                int pipefd[2];
+                if (pipe(pipefd) == -1) {
+                    perror("pipe");
+                    continue;
+                }
+                // Fork child process
+                pid_t pid = fork();
+                if (pid == -1) {
+                    perror("fork");
+                    continue;
+                } else if (pid == 0) {
+                    // Child process
+                    close(pipefd[0]); // Close read end of pipe
+                    dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
+                    close(pipefd[1]); // Close write end of pipe
+                    // Execute command before pipe
+                    execvp(args[0], args);
+                    perror("execvp");
+                    exit(EXIT_FAILURE);
+                } else {
+                    // Parent process
+                    close(pipefd[1]); // Close write end of pipe
+                    input = pipefd[0]; // Set input for next command to read from pipe
+                }
             }
-            continue;
-        } else if (strcmp(args[0], "exit") == 0) {
-            if (num_args > 1) {
-                write(STDOUT_FILENO, "Exiting with status: ", 22);
-                write(STDOUT_FILENO, args[1], strlen(args[1]));
-                write(STDOUT_FILENO, "\n", 1);
-                exit_status = atoi(args[1]);
-            }
-            break;
+
+            // Execute command
+            execvp(args[0], args);
+            perror("execvp");
+            exit(EXIT_FAILURE);
+
+            // Close file descriptors
+            if (input != STDIN_FILENO)
+                close(input);
+            if (output != STDOUT_FILENO)
+                close(output);
+        } else {
+            // No redirection or piping, execute command
+            exit_status = execute_command(args, STDIN_FILENO, STDOUT_FILENO);
         }
-
-        // Handle wildcard expansion
-        num_args = handle_wildcard(args);
-
-        // Execute command
-        exit_status = execute_command(args, STDIN_FILENO, STDOUT_FILENO);
     }
 
     if (isatty(input_fd)) {
