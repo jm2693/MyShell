@@ -2321,37 +2321,6 @@ void print_prompt() {
     write(STDOUT_FILENO, "mysh> ", 6);
 }
 
-// useses execvp
-
-// int execute_command(char **args, int input_fd, int output_fd) {
-//     pid_t pid = fork();
-//     if (pid == 0) {
-//         // Child process
-//         if (input_fd != STDIN_FILENO) {
-//             dup2(input_fd, STDIN_FILENO);
-//             close(input_fd);
-//         }
-//         if (output_fd != STDOUT_FILENO) {
-//             dup2(output_fd, STDOUT_FILENO);
-//             close(output_fd);
-//         }
-//         execvp(args[0], args);
-//         // If execvp returns, it means an error occurred
-//         perror("execvp");
-//         exit(EXIT_FAILURE);
-//     } else if (pid < 0) {
-//         // Fork failed
-//         perror("fork");
-//         return -1;
-//     } else {
-//         // Parent process
-//         int status;
-//         waitpid(pid, &status, 0);
-//         return WEXITSTATUS(status);
-//     }
-// }
-
-
 // doesn't use access
 int execute_command(char **args, int input_fd, int output_fd) {
     pid_t pid;
@@ -2435,10 +2404,6 @@ int handle_wildcard(char **args) {
 
     return num_args;
 }
-
-
-
-
 
 
 
@@ -2627,6 +2592,165 @@ int run_shell(int input_fd) {
 
     return exit_status;
 }
+
+int main(int argc, char *argv[]) {
+
+    int exit_status = 0;
+
+    if (argc > 2) {
+        printf("The following program only takes in 1 additional argument: %s\n", argv[0]);
+        return 1;
+    }
+
+    int input_fd = STDIN_FILENO;
+    if (argc > 1) {
+        input_fd = open(argv[1], O_RDONLY);
+        if (input_fd == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (isatty(input_fd)) {
+        write(STDOUT_FILENO, "Welcome to my shell!\n", 21);
+    }
+
+    exit_status = run_shell(input_fd);
+
+    if (isatty(input_fd)) {
+        write(STDOUT_FILENO, "Exiting my shell.\n", 18);
+    }
+
+    if (argc > 1) {
+        close(input_fd);
+    }
+
+    return exit_status;
+}
+
+
+
+//ORIGINAL MAIN
+
+// int main(int argc, char *argv[]) {
+//     char command[MAX_COMMAND_LENGTH];
+//     char *args[MAX_ARGS];
+//     int num_args;
+//     int exit_status = 0;
+
+//     if (argc > 2) {
+//         printf("The following program only takes in 1 additional argument: %s\n", argv[0]);
+//         return 1;
+//     }
+
+//     int input_fd = STDIN_FILENO;
+//     if (argc > 1) {
+//         input_fd = open(argv[1], O_RDONLY);
+//         if (input_fd == -1) {
+//             perror("open");
+//             exit(EXIT_FAILURE);
+//         }
+//     }
+
+//     if (isatty(input_fd)) {
+//         write(STDOUT_FILENO, "Welcome to my shell!\n", 21);
+//     }
+
+//     while (1) {
+//         if (isatty(input_fd)) {
+//             print_prompt();
+//         }
+
+//         // reading input 
+//         ssize_t bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH);
+//         if (bytes_read <= 0) {
+//             // End of input stream
+//             break;
+//         }
+//         // Null terminate the string
+//         command[bytes_read] = '\0';
+
+//         // Parse command into arguments
+//         num_args = 0;
+//         char *token = strtok(command, " \n");
+//         while (token != NULL) {
+//             args[num_args++] = token;
+//             token = strtok(NULL, " \n");
+//         }
+//         args[num_args] = NULL;
+
+//         if (strcmp(args[0], "cd") == 0) {
+//             if (num_args != 2) {
+//                 write(STDERR_FILENO, "cd: Invalid number of arguments\n", 32);
+//                 continue;
+//             }
+//             if (chdir(args[1]) != 0) {
+//                 perror("chdir");
+//             }
+//             continue;
+//         } else if (strcmp(args[0], "pwd") == 0) {
+//             char cwd[1024];
+//             if (getcwd(cwd, sizeof(cwd)) != NULL) {
+//                 write(STDOUT_FILENO, cwd, strlen(cwd));
+//                 write(STDOUT_FILENO, "\n", 1);
+//             } else {
+//                 perror("getcwd");
+//             }
+//             continue;
+//         } else if (strcmp(args[0], "which") == 0) {
+//             if (num_args != 2) {
+//                 write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
+//                 continue;
+//             }
+//             char *path = getenv("PATH");
+//             if (path != NULL) {
+//                 char *token = strtok(path, ":");
+//                 while (token != NULL) {
+//                     char cmd_path[1024];
+//                     snprintf(cmd_path, sizeof(cmd_path), "%s/%s", token, args[1]);
+//                     if (access(cmd_path, X_OK) == 0) {
+//                         write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
+//                         write(STDOUT_FILENO, "\n", 1);
+//                         break;
+//                     }
+//                     token = strtok(NULL, ":");
+//                 }
+//             } else {
+//                 write(STDERR_FILENO, "which: PATH environment variable not set\n", 42);
+//             }
+//             continue;
+//         } else if (strcmp(args[0], "exit") == 0) {
+//             if (num_args > 1) {
+//                 write(STDOUT_FILENO, "Exiting with status: ", 22);
+//                 write(STDOUT_FILENO, args[1], strlen(args[1]));
+//                 write(STDOUT_FILENO, "\n", 1);
+//                 exit_status = atoi(args[1]);
+//             }
+//             break;
+//         }
+
+//         // Handle wildcard expansion
+//         num_args = handle_wildcard(args);
+
+//         // Execute command
+//         exit_status = execute_command(args, STDIN_FILENO, STDOUT_FILENO);
+//     }
+
+//     if (isatty(input_fd)) {
+//         write(STDOUT_FILENO, "Exiting my shell.\n", 18);
+//     }
+
+//     if (argc > 1) {
+//         close(input_fd);
+//     }
+
+//     return exit_status;
+// }
+
+
+
+
+// OLD RUN SHELL
 
 
 
@@ -2823,163 +2947,3 @@ int run_shell(int input_fd) {
 // }
 
 
-
-
-int main(int argc, char *argv[]) {
-
-    int exit_status = 0;
-
-    if (argc > 2) {
-        printf("The following program only takes in 1 additional argument: %s\n", argv[0]);
-        return 1;
-    }
-
-    int input_fd = STDIN_FILENO;
-    if (argc > 1) {
-        input_fd = open(argv[1], O_RDONLY);
-        if (input_fd == -1) {
-            perror("open");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    if (isatty(input_fd)) {
-        write(STDOUT_FILENO, "Welcome to my shell!\n", 21);
-    }
-
-    exit_status = run_shell(input_fd);
-
-    if (isatty(input_fd)) {
-        write(STDOUT_FILENO, "Exiting my shell.\n", 18);
-    }
-
-    if (argc > 1) {
-        close(input_fd);
-    }
-
-    return exit_status;
-}
-
-
-
-//ORIGINAL MAIN
-
-// int main(int argc, char *argv[]) {
-//     char command[MAX_COMMAND_LENGTH];
-//     char *args[MAX_ARGS];
-//     int num_args;
-//     int exit_status = 0;
-
-//     if (argc > 2) {
-//         printf("The following program only takes in 1 additional argument: %s\n", argv[0]);
-//         return 1;
-//     }
-
-//     int input_fd = STDIN_FILENO;
-//     if (argc > 1) {
-//         input_fd = open(argv[1], O_RDONLY);
-//         if (input_fd == -1) {
-//             perror("open");
-//             exit(EXIT_FAILURE);
-//         }
-//     }
-
-//     if (isatty(input_fd)) {
-//         write(STDOUT_FILENO, "Welcome to my shell!\n", 21);
-//     }
-
-//     while (1) {
-//         if (isatty(input_fd)) {
-//             print_prompt();
-//         }
-
-//         // reading input 
-//         ssize_t bytes_read = read(input_fd, command, MAX_COMMAND_LENGTH);
-//         if (bytes_read <= 0) {
-//             // End of input stream
-//             break;
-//         }
-//         // Null terminate the string
-//         command[bytes_read] = '\0';
-
-//         // Parse command into arguments
-//         num_args = 0;
-//         char *token = strtok(command, " \n");
-//         while (token != NULL) {
-//             args[num_args++] = token;
-//             token = strtok(NULL, " \n");
-//         }
-//         args[num_args] = NULL;
-
-//         if (strcmp(args[0], "cd") == 0) {
-//             if (num_args != 2) {
-//                 write(STDERR_FILENO, "cd: Invalid number of arguments\n", 32);
-//                 continue;
-//             }
-//             if (chdir(args[1]) != 0) {
-//                 perror("chdir");
-//             }
-//             continue;
-//         } else if (strcmp(args[0], "pwd") == 0) {
-//             char cwd[1024];
-//             if (getcwd(cwd, sizeof(cwd)) != NULL) {
-//                 write(STDOUT_FILENO, cwd, strlen(cwd));
-//                 write(STDOUT_FILENO, "\n", 1);
-//             } else {
-//                 perror("getcwd");
-//             }
-//             continue;
-//         } else if (strcmp(args[0], "which") == 0) {
-//             if (num_args != 2) {
-//                 write(STDERR_FILENO, "which: Invalid number of arguments\n", 36);
-//                 continue;
-//             }
-//             char *path = getenv("PATH");
-//             if (path != NULL) {
-//                 char *token = strtok(path, ":");
-//                 while (token != NULL) {
-//                     char cmd_path[1024];
-//                     snprintf(cmd_path, sizeof(cmd_path), "%s/%s", token, args[1]);
-//                     if (access(cmd_path, X_OK) == 0) {
-//                         write(STDOUT_FILENO, cmd_path, strlen(cmd_path));
-//                         write(STDOUT_FILENO, "\n", 1);
-//                         break;
-//                     }
-//                     token = strtok(NULL, ":");
-//                 }
-//             } else {
-//                 write(STDERR_FILENO, "which: PATH environment variable not set\n", 42);
-//             }
-//             continue;
-//         } else if (strcmp(args[0], "exit") == 0) {
-//             if (num_args > 1) {
-//                 write(STDOUT_FILENO, "Exiting with status: ", 22);
-//                 write(STDOUT_FILENO, args[1], strlen(args[1]));
-//                 write(STDOUT_FILENO, "\n", 1);
-//                 exit_status = atoi(args[1]);
-//             }
-//             break;
-//         }
-
-//         // Handle wildcard expansion
-//         num_args = handle_wildcard(args);
-
-//         // Execute command
-//         exit_status = execute_command(args, STDIN_FILENO, STDOUT_FILENO);
-//     }
-
-//     if (isatty(input_fd)) {
-//         write(STDOUT_FILENO, "Exiting my shell.\n", 18);
-//     }
-
-//     if (argc > 1) {
-//         close(input_fd);
-//     }
-
-//     return exit_status;
-// }
-
-
-
-
-// OLD RUN SHELL
