@@ -148,10 +148,11 @@ int main(int argc, char *argv[]) {
         char *args_command [MAX_ARGS];
         char *args_redirect[MAX_ARGS];
         int args_inc1;
-        if(strchr(*args, ">") != NULL || strchr(*args, "<")){
+
+        if(strchr(*args, ">") != NULL || strchr(*args, "<") || strchr(*args, "|")){
             //redirection detected
             for(int i = 0; i < num_args; i++){
-                if(strcmp(args[i], ">") == 0 || strcmp(args[i], "<")){
+                if(strcmp(args[i], ">") == 0 || strcmp(args[i], "<") || strcmp(args[i], "|")){
                     args_redirect[args_inc1] = args[i];
                     args_command[args_inc1] = " ";
                     args_inc1++;
@@ -163,8 +164,17 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            if(strcmp(args_command[0],"<")){
-                
+            for(int i = 0; i < args_inc1; i++){
+                if(strcmp(args_redirect[i], "<") == 0 || strcmp(args_redirect[i], "|") == 0){
+                    int input = open(args_command[i--], O_RDONLY);
+                    int output = open(args_command[i++], O_WRONLY, 0640);
+                    execute_command(args, input, output); 
+                }
+                else if(strcmp(args_redirect[i], ">") == 0){
+                    int input = open(args_command[i++], O_RDONLY);
+                    int output = open(args_command[i--], O_WRONLY, 0640);
+                    execute_command(args, input, output); 
+                }
             }
 
         }
