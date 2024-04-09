@@ -1,2 +1,6 @@
+#!/bin/bash
 pwd 
-exit
+cd .. 
+pwd
+cd my_shell
+pwd
